@@ -409,7 +409,16 @@ class DiscoveryJournalView(tk.Frame):
         self.detail_vbar.pack(side="right", fill="y")
 
         self.detail_container.bind("<Configure>", lambda e: self.detail_canvas.configure(scrollregion=self.detail_canvas.bbox("all")))
-        self.detail_canvas.bind("<Configure>", lambda e: self.detail_canvas.itemconfig(self.detail_win_id, width=e.width))
+        self.detail_canvas.bind("<Configure>", self._on_detail_canvas_configure)
+
+    def _on_detail_canvas_configure(self, event):
+        self.detail_canvas.itemconfig(self.detail_win_id, width=event.width)
+        avail = max(280, event.width - 56)
+        for lbl in getattr(self, "detail_wrap_labels", []):
+            try:
+                lbl.config(wraplength=avail)
+            except Exception:
+                pass
 
     # -------------------------------------------------------------------------
     # FILTERED ENTRY QUERY & SORTING
@@ -615,6 +624,8 @@ class DiscoveryJournalView(tk.Frame):
             self._render_detail_empty()
             return
 
+        self.detail_wrap_labels = []
+
         # 1. Header Row: Domain & Type Badges + Timestamps
         top_row = tk.Frame(self.detail_container, bg=Theme.BG_CARD)
         top_row.pack(fill="x", padx=24, pady=(20, 8))
@@ -655,15 +666,18 @@ class DiscoveryJournalView(tk.Frame):
         ).pack(side="right")
 
         # 2. Main Title
-        tk.Label(
+        cur_w = max(300, self.detail_canvas.winfo_width() - 64)
+        title_lbl = tk.Label(
             self.detail_container,
             text=entry.get("title", "Untitled Entry"),
             font=("Segoe UI", 18, "bold"),
             bg=Theme.BG_CARD,
             fg=Theme.TEXT_PRIMARY,
-            wraplength=640,
+            wraplength=cur_w,
             justify="left"
-        ).pack(anchor="w", padx=24, pady=(0, 10))
+        )
+        title_lbl.pack(anchor="w", padx=24, pady=(0, 10))
+        self.detail_wrap_labels.append(title_lbl)
 
         # 3. Action Toolbar (Edit, Duplicate, Delete) + Quick Hypothesis Status Transitions
         action_bar = tk.Frame(self.detail_container, bg=Theme.BG_INPUT, highlightbackground=Theme.BORDER_MUTED, highlightthickness=1, padx=14, pady=8)
@@ -758,15 +772,17 @@ class DiscoveryJournalView(tk.Frame):
             c_frame = tk.Frame(s_box, bg=Theme.BG_INPUT, highlightbackground=Theme.BORDER_MUTED, highlightthickness=1, padx=14, pady=10)
             c_frame.pack(fill="x")
 
-            tk.Label(
+            c_lbl = tk.Label(
                 c_frame,
                 text=sec_content,
                 font=("Segoe UI", 9),
                 bg=Theme.BG_INPUT,
                 fg=Theme.TEXT_SECONDARY,
-                wraplength=620,
+                wraplength=max(300, self.detail_canvas.winfo_width() - 80),
                 justify="left"
-            ).pack(anchor="w")
+            )
+            c_lbl.pack(anchor="w")
+            self.detail_wrap_labels.append(c_lbl)
 
         # 5. Scientific Dossier Sections
         add_section("Research Question", entry.get("research_question"), "❓", Theme.CYAN)

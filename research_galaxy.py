@@ -295,7 +295,18 @@ class ResearchGalaxyView(tk.Frame):
         workspace = tk.Frame(parent, bg=Theme.BG_ROOT)
         workspace.pack(fill="both", expand=True, padx=32, pady=(0, 16))
 
-        # Left Column: Tkinter Canvas (Constellation Network)
+        # Right Column: Concept Inspector Detail Panel (pack first on right to guarantee width)
+        self.inspector_card = tk.Frame(
+            workspace,
+            bg=Theme.BG_CARD,
+            highlightbackground=Theme.BORDER_SUBTLE,
+            highlightthickness=1,
+            width=390
+        )
+        self.inspector_card.pack(side="right", fill="y")
+        self.inspector_card.pack_propagate(False)
+
+        # Left Column: Tkinter Canvas (Constellation Network, expands to fill remaining space)
         canvas_card = tk.Frame(
             workspace,
             bg=Theme.BG_CARD,
@@ -319,17 +330,6 @@ class ResearchGalaxyView(tk.Frame):
         self.canvas.bind("<Button-4>", lambda _: self._zoom_view(1.15))
         self.canvas.bind("<Button-5>", lambda _: self._zoom_view(0.85))
         self.canvas.bind("<Configure>", lambda _: self._redraw_galaxy())
-
-        # Right Column: Concept Inspector Detail Panel
-        self.inspector_card = tk.Frame(
-            workspace,
-            bg=Theme.BG_CARD,
-            highlightbackground=Theme.BORDER_SUBTLE,
-            highlightthickness=1,
-            width=390
-        )
-        self.inspector_card.pack(side="right", fill="y", padx=(0, 0))
-        self.inspector_card.pack_propagate(False)
 
         # Inspector internal scrollable canvas
         self.inspector_scroll_canvas = tk.Canvas(

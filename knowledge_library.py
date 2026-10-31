@@ -55,7 +55,7 @@ class KnowledgeLibraryView(tk.Frame):
     # -------------------------------------------------------------------------
     def _build_header(self, parent):
         top_bar = tk.Frame(parent, bg=Theme.BG_ROOT)
-        top_bar.pack(fill="x", padx=32, pady=(16, 8))
+        top_bar.pack(fill="x", padx=28, pady=(12, 4))
 
         breadcrumb = tk.Label(
             top_bar,
@@ -71,40 +71,40 @@ class KnowledgeLibraryView(tk.Frame):
             bg=Theme.BG_CARD_ELEVATED,
             highlightbackground=Theme.TEAL,
             highlightthickness=1,
-            padx=28,
-            pady=16
+            padx=20,
+            pady=10
         )
-        hero.pack(fill="x", padx=32, pady=(0, 14))
+        hero.pack(fill="x", padx=28, pady=(0, 8))
+        self.hero = hero
 
         tag = tk.Label(
             hero,
             text="◈ EDUCATIONAL DEMONSTRATION MONOGRAPHS • PEER-REVIEW SIMULATION",
-            font=("Segoe UI", 8, "bold"),
+            font=("Segoe UI", 7, "bold"),
             bg=Theme.BG_INPUT,
             fg=Theme.TEAL,
-            padx=8,
-            pady=3
+            padx=6,
+            pady=2
         )
         tag.pack(anchor="w")
 
         title_lbl = tk.Label(
             hero,
             text="Knowledge Library & Theory Repository",
-            font=("Segoe UI", 20, "bold"),
+            font=("Segoe UI", 16, "bold"),
             bg=Theme.BG_CARD_ELEVATED,
             fg=Theme.TEXT_PRIMARY
         )
-        title_lbl.pack(anchor="w", pady=(6, 2))
+        title_lbl.pack(anchor="w", pady=(3, 1))
 
         desc_lbl = tk.Label(
             hero,
             text="Browse categorized demonstration resources across quantum systems, information theory, "
-                 "computational neuroscience, and complexity science. Use bookmarks to curate active study lists "
-                 "and transfer demonstration citations directly into your Discovery Journal.",
-            font=("Segoe UI", 9),
+                 "neuroscience, and complexity science. Curate active bookmarks and transfer citations to your Journal.",
+            font=("Segoe UI", 8),
             bg=Theme.BG_CARD_ELEVATED,
             fg=Theme.TEXT_SECONDARY,
-            wraplength=950,
+            wraplength=1050,
             justify="left"
         )
         desc_lbl.pack(anchor="w")
@@ -118,10 +118,11 @@ class KnowledgeLibraryView(tk.Frame):
             bg=Theme.BG_CARD,
             highlightbackground=Theme.BORDER_SUBTLE,
             highlightthickness=1,
-            padx=16,
-            pady=10
+            padx=14,
+            pady=6
         )
-        ctrl_bar.pack(fill="x", padx=32, pady=(0, 14))
+        ctrl_bar.pack(fill="x", padx=28, pady=(0, 10))
+        self.ctrl_bar = ctrl_bar
 
         # 1. Search Box
         search_box = tk.Frame(
@@ -130,9 +131,9 @@ class KnowledgeLibraryView(tk.Frame):
             highlightbackground=Theme.BORDER_MUTED,
             highlightthickness=1,
             padx=8,
-            pady=4
+            pady=3
         )
-        search_box.pack(side="left", padx=(0, 12))
+        search_box.pack(side="left", padx=(0, 10))
 
         s_icon = tk.Label(search_box, text="🔍", font=("Segoe UI", 9), bg=Theme.BG_INPUT, fg=Theme.TEXT_MUTED)
         s_icon.pack(side="left", padx=(0, 4))
@@ -144,7 +145,7 @@ class KnowledgeLibraryView(tk.Frame):
             fg=Theme.TEXT_PRIMARY,
             insertbackground=Theme.CYAN,
             font=("Segoe UI", 9),
-            width=26,
+            width=24,
             bd=0,
             relief="flat"
         )
@@ -178,7 +179,7 @@ class KnowledgeLibraryView(tk.Frame):
             width=18,
             font=("Segoe UI", 9)
         )
-        self.domain_dropdown.pack(side="left", padx=(0, 12))
+        self.domain_dropdown.pack(side="left", padx=(0, 10))
         self.domain_dropdown.bind("<<ComboboxSelected>>", lambda _: self._on_filter_changed())
 
         # 3. Sort Dropdown
@@ -198,7 +199,7 @@ class KnowledgeLibraryView(tk.Frame):
             width=16,
             font=("Segoe UI", 9)
         )
-        self.sort_dropdown.pack(side="left", padx=(0, 12))
+        self.sort_dropdown.pack(side="left", padx=(0, 10))
         self.sort_dropdown.bind("<<ComboboxSelected>>", lambda _: self._on_filter_changed())
 
         # 4. Bookmarked-Only Toggle Button
@@ -209,7 +210,7 @@ class KnowledgeLibraryView(tk.Frame):
             highlightthickness=1,
             cursor="hand2"
         )
-        self.bm_toggle_frame.pack(side="left", padx=(0, 12))
+        self.bm_toggle_frame.pack(side="left", padx=(0, 10))
 
         self.bm_toggle_lbl = tk.Label(
             self.bm_toggle_frame,
@@ -217,8 +218,8 @@ class KnowledgeLibraryView(tk.Frame):
             font=("Segoe UI", 8, "bold"),
             bg=Theme.BG_INPUT,
             fg=Theme.TEXT_SECONDARY,
-            padx=10,
-            pady=4,
+            padx=8,
+            pady=3,
             cursor="hand2"
         )
         self.bm_toggle_lbl.pack()
@@ -229,13 +230,13 @@ class KnowledgeLibraryView(tk.Frame):
         # 5. Reset All Filters Button
         reset_btn = tk.Label(
             ctrl_bar,
-            text="↺ Reset Filters",
+            text="↺ Reset",
             font=("Segoe UI", 8, "bold"),
             bg=Theme.BG_CARD,
             fg=Theme.TEXT_MUTED,
             cursor="hand2",
-            padx=8,
-            pady=4
+            padx=6,
+            pady=3
         )
         reset_btn.pack(side="left")
         reset_btn.bind("<Button-1>", lambda _: self.reset_all_filters())
@@ -253,18 +254,24 @@ class KnowledgeLibraryView(tk.Frame):
         self.count_badge.pack(side="right")
 
     # -------------------------------------------------------------------------
-    # MAIN WORKSPACE: TWO-COLUMN SPLIT LAYOUT
+    # MAIN WORKSPACE: TWO-COLUMN SPLIT LAYOUT (FULLY RESPONSIVE)
     # -------------------------------------------------------------------------
     def _build_main_workspace(self, parent):
         container = tk.Frame(parent, bg=Theme.BG_ROOT)
-        container.pack(fill="both", expand=True, padx=32, pady=(0, 24))
+        container.pack(fill="both", expand=True, padx=28, pady=(0, 14))
 
-        container.columnconfigure(0, weight=5)  # Left: 45% Cards List
-        container.columnconfigure(1, weight=6)  # Right: 55% Monograph Reader Panel
+        # Crucial vertical expansion: row 0 must expand to consume all available window space
+        container.rowconfigure(0, weight=1)
+        container.columnconfigure(0, weight=4, minsize=310)  # Left Column: ~40%
+        container.columnconfigure(1, weight=6, minsize=420)  # Right Column: ~60%
+
+        # Left Column Wrapper: Resource Cards Panel
+        self.left_panel = tk.Frame(container, bg=Theme.BG_ROOT)
+        self.left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
 
         # Left Column: Resource Cards List (Scrollable)
-        self.left_scroll = tk.Canvas(container, bg=Theme.BG_ROOT, highlightthickness=0)
-        self.left_scrollbar = ttk.Scrollbar(container, orient="vertical", command=self.left_scroll.yview)
+        self.left_scroll = tk.Canvas(self.left_panel, bg=Theme.BG_ROOT, highlightthickness=0)
+        self.left_scrollbar = ttk.Scrollbar(self.left_panel, orient="vertical", command=self.left_scroll.yview)
         self.cards_container = tk.Frame(self.left_scroll, bg=Theme.BG_ROOT)
 
         self.cards_container.bind(
@@ -276,16 +283,25 @@ class KnowledgeLibraryView(tk.Frame):
 
         self.left_scroll.bind("<Configure>", lambda e: self.left_scroll.itemconfig(self.left_window_id, width=e.width))
 
-        self.left_scroll.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
-        self.left_scrollbar.grid(row=0, column=0, sticky="nse", padx=(0, 8))
+        self.left_scroll.pack(side="left", fill="both", expand=True)
+        self.left_scrollbar.pack(side="right", fill="y")
 
         # Mousewheel binding
         self._bind_mousewheel_tree(self.left_scroll)
 
-        # Right Column: Resource Detail Inspector Panel (Scrollable)
-        self.right_scroll = tk.Canvas(container, bg=Theme.BG_CARD, highlightthickness=1, highlightbackground=Theme.BORDER_SUBTLE)
-        self.right_scrollbar = ttk.Scrollbar(container, orient="vertical", command=self.right_scroll.yview)
-        self.detail_container = tk.Frame(self.right_scroll, bg=Theme.BG_CARD, padx=24, pady=20)
+        # Right Column Wrapper: Resource Detail Inspector Panel
+        self.right_panel = tk.Frame(
+            container,
+            bg=Theme.BG_CARD,
+            highlightbackground=Theme.BORDER_SUBTLE,
+            highlightthickness=1
+        )
+        self.right_panel.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
+
+        # Right Column: Scrollable Detail Inspector
+        self.right_scroll = tk.Canvas(self.right_panel, bg=Theme.BG_CARD, highlightthickness=0)
+        self.right_scrollbar = ttk.Scrollbar(self.right_panel, orient="vertical", command=self.right_scroll.yview)
+        self.detail_container = tk.Frame(self.right_scroll, bg=Theme.BG_CARD, padx=24, pady=18)
 
         self.detail_container.bind(
             "<Configure>",
@@ -296,8 +312,8 @@ class KnowledgeLibraryView(tk.Frame):
 
         self.right_scroll.bind("<Configure>", self._on_right_canvas_configure)
 
-        self.right_scroll.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
-        self.right_scrollbar.grid(row=0, column=1, sticky="nse")
+        self.right_scroll.pack(side="left", fill="both", expand=True)
+        self.right_scrollbar.pack(side="right", fill="y")
 
         self._bind_mousewheel_tree(self.right_scroll, self.right_scroll)
 
@@ -574,6 +590,12 @@ class KnowledgeLibraryView(tk.Frame):
         child_widgets = [card, hdr, badge, lvl_badge, year_lbl, title_lbl, curator_lbl, summary_lbl, tag_box, act_row, inspect_lbl]
         for w in child_widgets:
             w.bind("<Button-1>", lambda _, r=rid: self.select_resource(r))
+
+        # Dynamically adapt label wraplength to actual card width
+        card.bind("<Configure>", lambda e, tl=title_lbl, sl=summary_lbl: (
+            tl.config(wraplength=max(180, e.width - 28)),
+            sl.config(wraplength=max(180, e.width - 28))
+        ))
 
         return card
 

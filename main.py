@@ -917,6 +917,8 @@ class DiscoveryHubView(tk.Frame):
                              wraplength=210, justify="left", anchor="w")
             d_lbl.pack(fill="x")
 
+            card.bind("<Configure>", lambda e, lbl=d_lbl: lbl.config(wraplength=max(160, e.width - 32)))
+
             # Click & hover bindings
             target_page = title
             for widget in (card, top, i_lbl, arrow, t_lbl, d_lbl):
@@ -996,6 +998,7 @@ class DiscoveryHubView(tk.Frame):
                              bg=Theme.BG_CARD, fg=Theme.TEXT_SECONDARY,
                              wraplength=480, justify="left", anchor="w")
             d_lbl.pack(fill="x", pady=(4, 10))
+            card.bind("<Configure>", lambda e, lbl=d_lbl: lbl.config(wraplength=max(200, e.width - 32)))
 
             # Action bar
             act = tk.Frame(card, bg=Theme.BG_CARD)
@@ -1056,6 +1059,11 @@ class DiscoveryHubView(tk.Frame):
             wraplength=350, justify="left"
         )
         expl.pack(anchor="w", pady=(0, 14))
+
+        card.bind("<Configure>", lambda e, ql=q_lbl, el=expl: (
+            ql.config(wraplength=max(200, e.width - 40)),
+            el.config(wraplength=max(200, e.width - 40))
+        ))
 
         # Interactive Entropy Simulation Box
         sim_box = tk.Frame(card, bg=Theme.BG_INPUT,
@@ -1315,10 +1323,7 @@ class ExperimentLabView(tk.Frame):
         if exp_key not in self.sub_views:
             return
 
-        # Hide current sub-view
-        for v in self.sub_views.values():
-            v.pack_forget()
-
+        prev_sub = self.current_sub_view
         self.current_sub_view = exp_key
 
         # Update tab styling
@@ -1334,8 +1339,13 @@ class ExperimentLabView(tk.Frame):
                 item["label"].config(bg=Theme.BG_INPUT,
                                      fg=Theme.TEXT_SECONDARY)
 
-        # Show target sub-view
+        # Show target sub-view first to prevent visual reflow flicker
         self.sub_views[exp_key].pack(fill="both", expand=True)
+        if prev_sub and prev_sub != exp_key and prev_sub in self.sub_views:
+            self.sub_views[prev_sub].pack_forget()
+        for k, v in self.sub_views.items():
+            if k != exp_key and k != prev_sub:
+                v.pack_forget()
 
         # Ensure responsive rendering on active canvas views
         if exp_key == "neural":
@@ -1449,11 +1459,12 @@ class ExperimentLabView(tk.Frame):
                              bg=Theme.BG_CARD, fg=Theme.TEXT_PRIMARY, anchor="w")
             t_lbl.pack(fill="x", pady=(12, 6))
 
-            # Description
+            # Description with responsive wraplength
             d_lbl = tk.Label(card, text=data["desc"], font=("Segoe UI", 9),
                              bg=Theme.BG_CARD, fg=Theme.TEXT_SECONDARY,
                              wraplength=260, justify="left", anchor="w")
             d_lbl.pack(fill="x", pady=(0, 14))
+            card.bind("<Configure>", lambda e, lbl=d_lbl: lbl.config(wraplength=max(180, e.width - 40)))
 
             # Specs Pills
             specs_row = tk.Frame(card, bg=Theme.BG_CARD)
@@ -2995,10 +3006,7 @@ class ResearchDetectiveView(tk.Frame):
         if key not in self.sub_views:
             return
 
-        # Hide current view
-        for v in self.sub_views.values():
-            v.pack_forget()
-
+        prev_view = self.current_sub_view
         self.current_sub_view = key
 
         # Update tab styling
@@ -3010,8 +3018,13 @@ class ResearchDetectiveView(tk.Frame):
                 item["frame"].config(bg=Theme.BG_INPUT, highlightbackground=Theme.BORDER_MUTED)
                 item["label"].config(bg=Theme.BG_INPUT, fg=Theme.TEXT_SECONDARY)
 
-        # Show target sub-view
+        # Show target sub-view first to prevent visual reflow flicker
         self.sub_views[key].pack(fill="both", expand=True)
+        if prev_view and prev_view != key and prev_view in self.sub_views:
+            self.sub_views[prev_view].pack_forget()
+        for k, v in self.sub_views.items():
+            if k != key and k != prev_view:
+                v.pack_forget()
 
         # Update metrics when returning to overview
         if key == "overview":
@@ -3250,11 +3263,12 @@ class ResearchDetectiveView(tk.Frame):
                              bg=Theme.BG_CARD, fg=Theme.TEXT_PRIMARY, anchor="w")
             t_lbl.pack(fill="x", pady=(10, 4))
 
-            # Description
+            # Description with responsive wraplength
             d_lbl = tk.Label(card, text=ch["desc"], font=("Segoe UI", 9),
                              bg=Theme.BG_CARD, fg=Theme.TEXT_SECONDARY,
                              wraplength=380, justify="left", anchor="w")
             d_lbl.pack(fill="x", pady=(0, 14))
+            card.bind("<Configure>", lambda e, lbl=d_lbl: lbl.config(wraplength=max(200, e.width - 40)))
 
             # Progress row
             prog_row = tk.Frame(card, bg=Theme.BG_CARD)
@@ -5431,6 +5445,10 @@ class CurioLabApp:
         self.header.pack(fill="x", side="top")
         self.header.pack_propagate(False)
 
+        # Thin glowing transition accent strip at the bottom of header
+        self.nav_transition_bar = tk.Frame(self.header, bg=Theme.CYAN, height=2)
+        self.nav_transition_bar.pack(side="bottom", fill="x")
+
         # Header Left: Page Title & Subtitle
         title_box = tk.Frame(self.header, bg=Theme.BG_HEADER, padx=28)
         title_box.pack(side="left", fill="y", pady=12)
@@ -5636,6 +5654,8 @@ class CurioLabApp:
             self.header_subtitle.configure(bg=Theme.BG_HEADER, fg=Theme.TEXT_MUTED)
         if hasattr(self, "content_area"):
             self.content_area.configure(bg=Theme.BG_ROOT)
+        if hasattr(self, "nav_transition_bar"):
+            self.nav_transition_bar.configure(bg=Theme.CYAN)
         if hasattr(self, "nav_buttons"):
             for name, btn in self.nav_buttons.items():
                 if name == self.current_page_name:
@@ -5650,23 +5670,45 @@ class CurioLabApp:
                     btn["label"].config(bg=Theme.BG_SIDEBAR, fg=Theme.TEXT_SECONDARY)
 
     def navigate_to(self, page_name):
-        """Switches the visible page inside content_area without creating new windows."""
+        """
+        Seamlessly switches the visible page inside content_area without visible flicker,
+        preserving all component states and applying distinct module accent highlights.
+        """
         if page_name not in self.pages:
             return
 
-        # Hide currently active page
-        for p in self.pages.values():
-            p.pack_forget()
+        prev_page = getattr(self, "current_page_name", None)
+
+        # Distinct futuristic laboratory module accent palette
+        module_accents = {
+            "Discovery Hub": Theme.CYAN_BRIGHT,
+            "Experiment Lab": Theme.PURPLE,
+            "Research Detective": Theme.CYAN,
+            "Knowledge Library": Theme.TEAL,
+            "Research Galaxy": Theme.PURPLE_LIGHT,
+            "Discovery Journal": Theme.EMERALD,
+            "Settings": Theme.AMBER,
+            "Help & About": Theme.BLUE,
+        }
+        mod_accent = module_accents.get(page_name, Theme.CYAN)
+
+        # 1. Seamless zero-flicker transition: pack target page first so window is never blank
+        target_page = self.pages[page_name]
+        target_page.pack(fill="both", expand=True)
+
+        # 2. Hide previous page without unmapping or destroying any internal widgets
+        if prev_page and prev_page != page_name and prev_page in self.pages:
+            self.pages[prev_page].pack_forget()
 
         # Update current page tracking
         self.current_page_name = page_name
 
-        # Update sidebar button states
+        # 3. Update sidebar active button styling with matching module accent
         for name, btn in self.nav_buttons.items():
             if name == page_name:
                 btn["frame"].config(bg=Theme.BG_CARD)
-                btn["indicator"].config(bg=Theme.CYAN)
-                btn["icon"].config(bg=Theme.BG_CARD, fg=Theme.CYAN)
+                btn["indicator"].config(bg=mod_accent)
+                btn["icon"].config(bg=Theme.BG_CARD, fg=mod_accent)
                 btn["label"].config(bg=Theme.BG_CARD, fg=Theme.TEXT_PRIMARY, font=("Segoe UI", 10, "bold"))
             else:
                 btn["frame"].config(bg=Theme.BG_SIDEBAR)
@@ -5674,7 +5716,7 @@ class CurioLabApp:
                 btn["icon"].config(bg=Theme.BG_SIDEBAR, fg=Theme.TEXT_MUTED)
                 btn["label"].config(bg=Theme.BG_SIDEBAR, fg=Theme.TEXT_SECONDARY, font=("Segoe UI", 10))
 
-        # Update top header title & subtitle
+        # 4. Update top header title, subtitle & transition accent bar
         self.header_title.config(text=page_name)
         subtitles = {
             "Discovery Hub": "Laboratory Overview & Real-Time Research Intel",
@@ -5688,10 +5730,10 @@ class CurioLabApp:
         }
         self.header_subtitle.config(text=subtitles.get(page_name, "Interactive Research Platform"))
 
-        # Pack and display target page
-        self.pages[page_name].pack(fill="both", expand=True)
+        if hasattr(self, "nav_transition_bar"):
+            self.nav_transition_bar.config(bg=mod_accent)
 
-        # Refresh page states
+        # 5. Refresh page state observers if defined
         if page_name == "Discovery Hub" and hasattr(self.pages[page_name], "update_statistics_display"):
             self.pages[page_name].update_statistics_display()
         elif hasattr(self.pages[page_name], "on_navigate_to"):
