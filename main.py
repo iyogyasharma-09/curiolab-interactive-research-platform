@@ -21,46 +21,12 @@ import datetime
 import sys
 
 from app_state import AppState
+from theme import Theme
 from knowledge_library import KnowledgeLibraryView
 from research_galaxy import ResearchGalaxyView
 from discovery_journal import DiscoveryJournalView
-
-
-# =============================================================================
-# COLOR PALETTE & DESIGN SYSTEM
-# =============================================================================
-class Theme:
-    """Futuristic research-laboratory dark color palette."""
-    # Backgrounds
-    BG_ROOT = "#090D16"         # Deepest obsidian navy (main window)
-    BG_SIDEBAR = "#06080F"      # Midnight black-navy (fixed sidebar)
-    BG_HEADER = "#0B101D"       # Top header bar
-    BG_CARD = "#111726"         # Standard card background
-    BG_CARD_HOVER = "#172033"   # Card hover state
-    BG_CARD_ELEVATED = "#151D2E"# Elevated card surface
-    BG_INPUT = "#0D1322"        # Form and search inputs
-
-    # Borders & Dividers
-    BORDER_SUBTLE = "#1C2638"   # Very subtle card outline
-    BORDER_MUTED = "#24324A"    # Standard border
-    BORDER_GLOW = "#38BDF8"     # Focused / accent border glow
-
-    # Vibrant Futuristic Accents
-    CYAN = "#06B6D4"            # Primary brand cyan
-    CYAN_BRIGHT = "#22D3EE"     # Bright cyan glow
-    TEAL = "#14B8A6"            # Lab teal
-    PURPLE = "#8B5CF6"          # Cosmic purple
-    PURPLE_LIGHT = "#A78BFA"    # Light lavender purple
-    BLUE = "#3B82F6"            # Plasma blue
-    EMERALD = "#10B981"         # Success / active emerald
-    AMBER = "#F59E0B"           # Warning / attention amber
-    ROSE = "#F43F5E"            # Red / critical alert
-
-    # Typography Colors
-    TEXT_PRIMARY = "#F8FAFC"    # Crisp pure off-white for headings
-    TEXT_SECONDARY = "#94A3B8"  # Slate silver for body and subtitles
-    TEXT_MUTED = "#64748B"      # Darker slate for captions and hints
-    TEXT_ON_ACCENT = "#FFFFFF"  # Pure white on colored buttons
+from settings import SettingsView
+from help_about import HelpAboutView
 
 
 # =============================================================================
@@ -282,25 +248,26 @@ class ScrollableFrame(tk.Frame):
 # NOTIFICATION DROPDOWN / MODAL
 # =============================================================================
 class NotificationPopup(tk.Toplevel):
-    """Futuristic laboratory notification center dropdown."""
-    def __init__(self, parent, x, y, on_clear_callback=None, app_state=None):
+    """Futuristic laboratory notification center dropdown with interactive navigation."""
+    def __init__(self, parent, x, y, on_clear_callback=None, app_state=None, app_instance=None):
         super().__init__(parent)
         self.overrideredirect(True)
         self.configure(bg=Theme.BG_CARD_ELEVATED)
-        self.geometry(f"360x380+{x}+{y}")
+        self.geometry(f"390x440+{x}+{y}")
         self.attributes("-topmost", True)
         self.on_clear = on_clear_callback
         self.app_state = app_state
+        self.app_instance = app_instance
 
         # Border wrapper
         wrapper = tk.Frame(self, bg=Theme.BG_CARD_ELEVATED,
                            highlightbackground=Theme.BORDER_GLOW,
-                           highlightthickness=1, padx=16, pady=14)
+                           highlightthickness=1, padx=14, pady=12)
         wrapper.pack(fill="both", expand=True)
 
         # Header
         hdr = tk.Frame(wrapper, bg=Theme.BG_CARD_ELEVATED)
-        hdr.pack(fill="x", pady=(0, 10))
+        hdr.pack(fill="x", pady=(0, 8))
 
         title = tk.Label(hdr, text="🔔 Lab Notifications", font=("Segoe UI", 11, "bold"),
                          bg=Theme.BG_CARD_ELEVATED, fg=Theme.TEXT_PRIMARY)
@@ -311,45 +278,116 @@ class NotificationPopup(tk.Toplevel):
         close_btn.pack(side="right")
         close_btn.bind("<Button-1>", lambda _: self.destroy())
 
+        # Scrollable container for cards
+        canvas_container = tk.Frame(wrapper, bg=Theme.BG_CARD_ELEVATED)
+        canvas_container.pack(fill="both", expand=True)
+
+        canvas = tk.Canvas(canvas_container, bg=Theme.BG_CARD_ELEVATED, highlightthickness=0)
+        vbar = ttk.Scrollbar(canvas_container, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=vbar.set)
+
+        notif_list_frame = tk.Frame(canvas, bg=Theme.BG_CARD_ELEVATED)
+        win_id = canvas.create_window((0, 0), window=notif_list_frame, anchor="nw")
+
+        canvas.pack(side="left", fill="both", expand=True)
+        vbar.pack(side="right", fill="y")
+
+        notif_list_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<Configure>", lambda e: canvas.itemconfig(win_id, width=e.width))
+
         # Notification items
-        if self.app_state and hasattr(self.app_state, "notifications") and self.app_state.notifications:
-            items = [
-                (n.get("title", "Notification"), n.get("desc", ""), n.get("timestamp", "Recent"), n.get("accent", Theme.CYAN))
-                for n in self.app_state.notifications[:4]
-            ]
+        notifications = self.app_state.notifications if (self.app_state and hasattr(self.app_state, "notifications")) else []
+
+        if not notifications:
+            empty_box = tk.Frame(notif_list_frame, bg=Theme.BG_INPUT, padx=14, pady=24)
+            empty_box.pack(fill="x", pady=12)
+            tk.Label(empty_box, text="No Notifications", font=("Segoe UI", 10, "bold"),
+                     bg=Theme.BG_INPUT, fg=Theme.TEXT_SECONDARY).pack()
+            tk.Label(empty_box, text="Laboratory events and milestones will appear here.",
+                     font=("Segoe UI", 8), bg=Theme.BG_INPUT, fg=Theme.TEXT_MUTED).pack(pady=(4, 0))
         else:
-            items = [
-                ("⚡ Quantum Simulation Finished", "Wave packet dispersion simulation #42 converged at 99.8% precision.", "10m ago", Theme.CYAN),
-                ("🔍 Detective Case Solved", "Dr. Vance concluded investigation 'The Solar Wind Particle Anomaly'.", "1h ago", Theme.PURPLE),
-                ("📚 New Knowledge Paper", "'Topological Insulators & Quantum Computing' added to library.", "3h ago", Theme.TEAL),
-                ("💡 Discovery Recorded", "'Neural Synchrony in Collective Problem Solving' peer reviewed.", "Yesterday", Theme.EMERALD),
-            ]
+            for notif in notifications:
+                nid = notif.get("id")
+                is_read = notif.get("read", False)
+                accent = notif.get("accent", Theme.CYAN)
+                target_page = notif.get("target_page")
+                target_id = notif.get("target_id")
 
-        for n_title, n_desc, n_time, color in items:
-            card = tk.Frame(wrapper, bg=Theme.BG_CARD,
-                            highlightbackground=Theme.BORDER_SUBTLE,
-                            highlightthickness=1, padx=10, pady=8)
-            card.pack(fill="x", pady=4)
+                card = tk.Frame(
+                    notif_list_frame,
+                    bg=Theme.BG_CARD,
+                    highlightbackground=accent if not is_read else Theme.BORDER_SUBTLE,
+                    highlightthickness=1,
+                    padx=10,
+                    pady=8,
+                    cursor="hand2"
+                )
+                card.pack(fill="x", pady=3)
 
-            t_lbl = tk.Label(card, text=n_title, font=("Segoe UI", 9, "bold"),
-                             bg=Theme.BG_CARD, fg=color, anchor="w")
-            t_lbl.pack(fill="x")
+                top_row = tk.Frame(card, bg=Theme.BG_CARD)
+                top_row.pack(fill="x")
 
-            d_lbl = tk.Label(card, text=n_desc, font=("Segoe UI", 8),
-                             bg=Theme.BG_CARD, fg=Theme.TEXT_SECONDARY,
-                             wraplength=310, justify="left")
-            d_lbl.pack(anchor="w", pady=(2, 2))
+                t_lbl = tk.Label(top_row, text=notif.get("title", "Notification"),
+                                 font=("Segoe UI", 9, "bold"), bg=Theme.BG_CARD, fg=accent, anchor="w")
+                t_lbl.pack(side="left", fill="x", expand=True)
 
-            time_lbl = tk.Label(card, text=n_time, font=("Segoe UI", 7),
-                                bg=Theme.BG_CARD, fg=Theme.TEXT_MUTED)
-            time_lbl.pack(anchor="e")
+                if not is_read:
+                    unread_dot = tk.Label(top_row, text=" NEW ", font=("Segoe UI", 6, "bold"),
+                                          bg=Theme.ROSE, fg="#FFFFFF", padx=3, pady=1)
+                    unread_dot.pack(side="right", padx=(4, 0))
 
-        # Footer action
-        clear_btn = tk.Label(wrapper, text="Clear all notifications",
-                             font=("Segoe UI", 9, "underline"),
+                time_lbl = tk.Label(top_row, text=notif.get("timestamp", "Recent"),
+                                    font=("Segoe UI", 7), bg=Theme.BG_CARD, fg=Theme.TEXT_MUTED)
+                time_lbl.pack(side="right")
+
+                d_lbl = tk.Label(card, text=notif.get("desc", ""), font=("Segoe UI", 8),
+                                 bg=Theme.BG_CARD, fg=Theme.TEXT_SECONDARY,
+                                 wraplength=330, justify="left")
+                d_lbl.pack(anchor="w", pady=(2, 2))
+
+                if target_page:
+                    nav_hint = tk.Label(card, text=f"➔ Open in {target_page}",
+                                        font=("Segoe UI", 7, "bold"), bg=Theme.BG_CARD, fg=Theme.CYAN)
+                    nav_hint.pack(anchor="e")
+
+                def _make_handler(n_item=notif):
+                    def _h():
+                        if self.app_state:
+                            self.app_state.mark_notification_read(n_item["id"])
+                        if self.on_clear:
+                            self.on_clear()
+                        t_page = n_item.get("target_page")
+                        t_id = n_item.get("target_id")
+                        if t_page and self.app_instance:
+                            self.app_instance.navigate_to(t_page)
+                            if t_page == "Knowledge Library" and t_id and hasattr(self.app_instance.pages.get(t_page), "select_resource"):
+                                self.app_instance.pages[t_page].select_resource(t_id)
+                            elif t_page == "Research Galaxy" and t_id and hasattr(self.app_instance.pages.get(t_page), "center_on_node"):
+                                self.app_instance.pages[t_page].center_on_node(t_id)
+                            elif t_page == "Discovery Journal" and t_id and hasattr(self.app_instance.pages.get(t_page), "select_entry"):
+                                self.app_instance.pages[t_page].select_entry(t_id)
+                        self.destroy()
+                    return _h
+
+                h_func = _make_handler(notif)
+                for w in (card, top_row, t_lbl, d_lbl, time_lbl):
+                    w.bind("<Button-1>", lambda _, h=h_func: h())
+
+        # Footer actions
+        footer = tk.Frame(wrapper, bg=Theme.BG_CARD_ELEVATED)
+        footer.pack(fill="x", pady=(8, 0))
+
+        clear_btn = tk.Label(footer, text="✓ Mark all as read",
+                             font=("Segoe UI", 8, "underline"),
                              bg=Theme.BG_CARD_ELEVATED, fg=Theme.CYAN, cursor="hand2")
-        clear_btn.pack(anchor="center", pady=(10, 0))
+        clear_btn.pack(side="left")
         clear_btn.bind("<Button-1>", self._clear_all)
+
+        settings_link = tk.Label(footer, text="⚙️ Configure notifications",
+                                 font=("Segoe UI", 8),
+                                 bg=Theme.BG_CARD_ELEVATED, fg=Theme.TEXT_MUTED, cursor="hand2")
+        settings_link.pack(side="right")
+        settings_link.bind("<Button-1>", lambda _: (self.destroy(), self.app_instance.navigate_to("Settings") if self.app_instance else None))
 
         # Auto-dismiss on click outside
         self.bind("<FocusOut>", lambda _: self.destroy())
@@ -361,6 +399,284 @@ class NotificationPopup(tk.Toplevel):
         if self.on_clear:
             self.on_clear()
         self.destroy()
+
+
+# =============================================================================
+# GLOBAL FEDERATED SEARCH MODAL
+# =============================================================================
+class GlobalSearchModal(tk.Toplevel):
+    """
+    Federated multi-module global search modal.
+    Searches across Knowledge Library, Research Galaxy, Discovery Journal,
+    Experiment Lab, and Research Detective.
+    """
+    def __init__(self, parent, initial_query, app_instance, app_state):
+        super().__init__(parent)
+        self.title("CurioLab — Global Federated Search")
+        self.configure(bg=Theme.BG_ROOT)
+        self.geometry("680x560")
+        self.minsize(540, 420)
+        self.attributes("-topmost", True)
+        self.app_instance = app_instance
+        self.app_state = app_state
+
+        self.query_var = tk.StringVar(value=initial_query)
+
+        self._build_header()
+        self._build_results_area()
+
+        self.bind("<Escape>", lambda _: self.destroy())
+        self.search_entry.bind("<Return>", lambda _: self.execute_search())
+
+        if initial_query:
+            self.execute_search()
+
+    def _build_header(self):
+        hdr = tk.Frame(self, bg=Theme.BG_HEADER, padx=20, pady=14)
+        hdr.pack(fill="x")
+
+        top_line = tk.Frame(hdr, bg=Theme.BG_HEADER)
+        top_line.pack(fill="x")
+
+        tk.Label(
+            top_line,
+            text="🔍 Global Laboratory Federated Search",
+            font=("Segoe UI", 12, "bold"),
+            bg=Theme.BG_HEADER,
+            fg=Theme.TEXT_PRIMARY
+        ).pack(side="left")
+
+        close_btn = tk.Label(top_line, text="✕ Esc", font=("Segoe UI", 9, "bold"),
+                             bg=Theme.BG_INPUT, fg=Theme.TEXT_MUTED, padx=8, pady=3, cursor="hand2")
+        close_btn.pack(side="right")
+        close_btn.bind("<Button-1>", lambda _: self.destroy())
+
+        s_row = tk.Frame(hdr, bg=Theme.BG_HEADER)
+        s_row.pack(fill="x", pady=(10, 0))
+
+        s_box = tk.Frame(s_row, bg=Theme.BG_INPUT, highlightbackground=Theme.BORDER_MUTED, highlightthickness=1, padx=10, pady=6)
+        s_box.pack(side="left", fill="x", expand=True, padx=(0, 10))
+
+        self.search_entry = tk.Entry(
+            s_box,
+            textvariable=self.query_var,
+            font=("Segoe UI", 10),
+            bg=Theme.BG_INPUT,
+            fg=Theme.TEXT_PRIMARY,
+            insertbackground=Theme.CYAN,
+            relief="flat"
+        )
+        self.search_entry.pack(fill="x")
+        self.search_entry.focus_set()
+
+        run_btn = tk.Label(
+            s_row,
+            text=" Search ",
+            font=("Segoe UI", 9, "bold"),
+            bg=Theme.CYAN,
+            fg=Theme.BG_ROOT,
+            padx=14,
+            pady=6,
+            cursor="hand2"
+        )
+        run_btn.pack(side="right")
+        run_btn.bind("<Button-1>", lambda _: self.execute_search())
+
+        self.status_lbl = tk.Label(
+            self,
+            text="Type a scientific concept, topic, author, or keyword and press Enter.",
+            font=("Segoe UI", 8),
+            bg=Theme.BG_ROOT,
+            fg=Theme.TEXT_MUTED,
+            padx=20,
+            pady=6
+        )
+        self.status_lbl.pack(anchor="w")
+
+    def _build_results_area(self):
+        container = tk.Frame(self, bg=Theme.BG_ROOT, padx=20, pady=10)
+        container.pack(fill="both", expand=True)
+
+        self.canvas = tk.Canvas(container, bg=Theme.BG_ROOT, highlightthickness=0)
+        self.vbar = ttk.Scrollbar(container, orient="vertical", command=self.canvas.yview)
+        self.canvas.configure(yscrollcommand=self.vbar.set)
+
+        self.results_frame = tk.Frame(self.canvas, bg=Theme.BG_ROOT)
+        self.canvas_win = self.canvas.create_window((0, 0), window=self.results_frame, anchor="nw")
+
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.vbar.pack(side="right", fill="y")
+
+        self.results_frame.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfig(self.canvas_win, width=e.width))
+
+    def execute_search(self):
+        query = self.query_var.get().strip()
+        for child in self.results_frame.winfo_children():
+            child.destroy()
+
+        if not query:
+            self.status_lbl.config(text="Please specify a search term.")
+            return
+
+        results = self.app_state.search_all(query) if (self.app_state and hasattr(self.app_state, "search_all")) else []
+        self.status_lbl.config(text=f"Found {len(results)} matching records across CurioLab modules for '{query}':")
+
+        if not results:
+            empty_card = tk.Frame(self.results_frame, bg=Theme.BG_CARD, padx=20, pady=24, highlightbackground=Theme.BORDER_SUBTLE, highlightthickness=1)
+            empty_card.pack(fill="x", pady=10)
+
+            tk.Label(empty_card, text="🔍 No Matching Laboratory Records", font=("Segoe UI", 12, "bold"),
+                     bg=Theme.BG_CARD, fg=Theme.TEXT_PRIMARY).pack(anchor="w")
+            tk.Label(empty_card, text=f"No monograph, concept, journal entry, or simulation matched '{query}'.",
+                     font=("Segoe UI", 9), bg=Theme.BG_CARD, fg=Theme.TEXT_SECONDARY).pack(anchor="w", pady=(4, 10))
+
+            tk.Label(empty_card, text="Try suggested search topics:", font=("Segoe UI", 8, "bold"),
+                     bg=Theme.BG_CARD, fg=Theme.TEXT_MUTED).pack(anchor="w")
+
+            suggestions_row = tk.Frame(empty_card, bg=Theme.BG_CARD)
+            suggestions_row.pack(fill="x", pady=(6, 0))
+
+            for kw in ["Quantum", "Entropy", "Neural", "Automata", "Cipher", "Telemetry", "Perceptron"]:
+                pill = tk.Label(suggestions_row, text=f"◈ {kw}", font=("Segoe UI", 8),
+                                bg=Theme.BG_INPUT, fg=Theme.CYAN, padx=8, pady=3, cursor="hand2")
+                pill.pack(side="left", padx=(0, 6))
+                pill.bind("<Button-1>", lambda _, k=kw: (self.query_var.set(k), self.execute_search()))
+            return
+
+        for r in results:
+            cat = r.get("category", "")
+            badge = r.get("badge", "")
+            accent = r.get("accent", Theme.CYAN)
+            target_page = r.get("target_page")
+            target_id = r.get("target_id")
+
+            card = tk.Frame(
+                self.results_frame,
+                bg=Theme.BG_CARD,
+                highlightbackground=Theme.BORDER_SUBTLE,
+                highlightthickness=1,
+                padx=14,
+                pady=10,
+                cursor="hand2"
+            )
+            card.pack(fill="x", pady=(0, 8))
+
+            top_row = tk.Frame(card, bg=Theme.BG_CARD)
+            top_row.pack(fill="x")
+
+            badge_lbl = tk.Label(top_row, text=f" {badge} ", font=("Segoe UI", 7, "bold"),
+                                 bg=Theme.BG_INPUT, fg=accent, padx=4, pady=2)
+            badge_lbl.pack(side="left", padx=(0, 8))
+
+            mod_lbl = tk.Label(top_row, text=f"{r.get('icon', '')} {cat}",
+                               font=("Segoe UI", 8, "bold"), bg=Theme.BG_CARD, fg=Theme.TEXT_MUTED)
+            mod_lbl.pack(side="left")
+
+            nav_btn = tk.Label(top_row, text="Open ➔", font=("Segoe UI", 8, "bold"),
+                               bg=Theme.BG_CARD, fg=Theme.CYAN)
+            nav_btn.pack(side="right")
+
+            title_lbl = tk.Label(card, text=r.get("title", ""), font=("Segoe UI", 11, "bold"),
+                                 bg=Theme.BG_CARD, fg=Theme.TEXT_PRIMARY, anchor="w")
+            title_lbl.pack(fill="x", pady=(4, 2))
+
+            sub_lbl = tk.Label(card, text=r.get("subtitle", ""), font=("Segoe UI", 8),
+                               bg=Theme.BG_CARD, fg=Theme.TEXT_MUTED, anchor="w")
+            sub_lbl.pack(fill="x")
+
+            if r.get("snippet"):
+                snip_lbl = tk.Label(card, text=r.get("snippet", ""), font=("Segoe UI", 8),
+                                    bg=Theme.BG_CARD, fg=Theme.TEXT_SECONDARY, wraplength=600, justify="left", anchor="w")
+                snip_lbl.pack(fill="x", pady=(3, 0))
+
+            def _make_open_action(page=target_page, tid=target_id):
+                def _act():
+                    if page and self.app_instance:
+                        self.app_instance.navigate_to(page)
+                        if page == "Knowledge Library" and tid and hasattr(self.app_instance.pages.get(page), "select_resource"):
+                            self.app_instance.pages[page].select_resource(tid)
+                        elif page == "Research Galaxy" and tid and hasattr(self.app_instance.pages.get(page), "center_on_node"):
+                            self.app_instance.pages[page].center_on_node(tid)
+                        elif page == "Discovery Journal" and tid and hasattr(self.app_instance.pages.get(page), "select_entry"):
+                            self.app_instance.pages[page].select_entry(tid)
+                    self.destroy()
+                return _act
+
+            open_act = _make_open_action(target_page, target_id)
+            for w in (card, top_row, badge_lbl, mod_lbl, nav_btn, title_lbl, sub_lbl):
+                w.bind("<Button-1>", lambda _, a=open_act: a())
+
+
+# =============================================================================
+# RESEARCHER PROFILE MODAL
+# =============================================================================
+class UserProfileModal(tk.Toplevel):
+    """Researcher Profile & Credentials dossier popup."""
+    def __init__(self, parent, x, y, app_state):
+        super().__init__(parent)
+        self.overrideredirect(True)
+        self.configure(bg=Theme.BG_CARD_ELEVATED)
+        self.geometry(f"320x360+{x}+{y}")
+        self.attributes("-topmost", True)
+        self.app_state = app_state
+
+        wrapper = tk.Frame(self, bg=Theme.BG_CARD_ELEVATED,
+                           highlightbackground=Theme.PURPLE,
+                           highlightthickness=1, padx=16, pady=14)
+        wrapper.pack(fill="both", expand=True)
+
+        top = tk.Frame(wrapper, bg=Theme.BG_CARD_ELEVATED)
+        top.pack(fill="x", pady=(0, 10))
+
+        av = tk.Label(top, text="EV", font=("Segoe UI", 12, "bold"),
+                      bg=Theme.PURPLE, fg="#FFFFFF", padx=8, pady=4)
+        av.pack(side="left", padx=(0, 10))
+
+        info = tk.Frame(top, bg=Theme.BG_CARD_ELEVATED)
+        info.pack(side="left")
+
+        tk.Label(info, text="Dr. Elena Vance", font=("Segoe UI", 10, "bold"),
+                 bg=Theme.BG_CARD_ELEVATED, fg=Theme.TEXT_PRIMARY).pack(anchor="w")
+        tk.Label(info, text="Lead Research Investigator", font=("Segoe UI", 8),
+                 bg=Theme.BG_CARD_ELEVATED, fg=Theme.CYAN).pack(anchor="w")
+
+        close_b = tk.Label(top, text="✕", font=("Segoe UI", 9, "bold"),
+                           bg=Theme.BG_CARD_ELEVATED, fg=Theme.TEXT_MUTED, cursor="hand2")
+        close_b.pack(side="right", anchor="n")
+        close_b.bind("<Button-1>", lambda _: self.destroy())
+
+        tk.Frame(wrapper, bg=Theme.BORDER_SUBTLE, height=1).pack(fill="x", pady=(0, 10))
+
+        tk.Label(wrapper, text="Clearance: Level 5 (Quantum & Neural Systems)",
+                 font=("Segoe UI", 8, "bold"), bg=Theme.BG_INPUT, fg=Theme.TEXT_MUTED, padx=6, pady=3).pack(fill="x", pady=(0, 10))
+
+        m = self.app_state.get_metrics() if (self.app_state and hasattr(self.app_state, "get_metrics")) else {}
+
+        stats_box = tk.Frame(wrapper, bg=Theme.BG_CARD_ELEVATED)
+        stats_box.pack(fill="x")
+
+        stats_data = [
+            ("Investigator Score", f"{m.get('detective_score', 0)} pts", Theme.CYAN),
+            ("Cleared Challenges", f"{m.get('solved_challenges_count', 0)} / {m.get('total_challenges_count', 14)}", Theme.PURPLE_LIGHT),
+            ("Experiments Run", f"{m.get('total_experiment_executions', 0)}", Theme.TEAL),
+            ("Verified Hypotheses", f"{m.get('verified_hypotheses', 0)}", Theme.EMERALD),
+            ("Curated Bookmarks", f"{m.get('bookmarked_count', 0)} monographs", Theme.AMBER),
+            ("Diligence Rating", f"{m.get('diligence_pct', 100.0):.1f}%", Theme.CYAN_BRIGHT)
+        ]
+
+        for s_title, s_val, s_col in stats_data:
+            row = tk.Frame(stats_box, bg=Theme.BG_CARD_ELEVATED)
+            row.pack(fill="x", pady=2)
+            tk.Label(row, text=s_title, font=("Segoe UI", 8), bg=Theme.BG_CARD_ELEVATED, fg=Theme.TEXT_SECONDARY).pack(side="left")
+            tk.Label(row, text=s_val, font=("Segoe UI", 8, "bold"), bg=Theme.BG_CARD_ELEVATED, fg=s_col).pack(side="right")
+
+        tk.Label(wrapper, text="CurioLab Local Offline Session", font=("Segoe UI", 7),
+                 bg=Theme.BG_CARD_ELEVATED, fg=Theme.TEXT_MUTED).pack(anchor="center", pady=(14, 0))
+
+        self.bind("<FocusOut>", lambda _: self.destroy())
+        self.focus_set()
+
 
 
 # =============================================================================
@@ -4946,8 +5262,9 @@ class CurioLabApp:
         self.pages = {}
         self._initialize_pages()
 
-        # Display default page (Discovery Hub)
-        self.navigate_to("Discovery Hub")
+        # Display default page from preferences (defaulting to Discovery Hub)
+        default_landing = self.state.preferences.get("default_landing_page", "Discovery Hub")
+        self.navigate_to(default_landing)
 
         # Global keyboard shortcuts: Ctrl+F (or Cmd+F on Mac) for search
         self.root.bind("<Control-f>", lambda _: self.search_entry.focus_set())
@@ -5205,16 +5522,7 @@ class CurioLabApp:
         query = self.search_var.get().strip()
         if not query or query == self.placeholder:
             return
-
-        messagebox.showinfo(
-            "CurioLab Search Results",
-            f"Query: '{query}'\n\n"
-            f"Found 4 relevant laboratory records:\n"
-            f"1. [Experiment] Quantum Wavepacket Dispersal ({query})\n"
-            f"2. [Knowledge] Theoretical Framework on {query.capitalize()}\n"
-            f"3. [Case #104] Investigation into {query}\n"
-            f"4. [Journal] Preliminary lab observations regarding {query}"
-        )
+        GlobalSearchModal(self.root, query, self, self.state)
 
     def _build_notification_btn(self, parent):
         """Clickable bell notification icon with unread badge."""
@@ -5241,7 +5549,7 @@ class CurioLabApp:
         """Displays or closes floating notification center."""
         x = event.x_root - 180
         y = event.y_root + 20
-        NotificationPopup(self.root, x, y, on_clear_callback=self._clear_notifications, app_state=self.state)
+        NotificationPopup(self.root, x, y, on_clear_callback=self._clear_notifications, app_state=self.state, app_instance=self)
 
     def _clear_notifications(self):
         if hasattr(self, "state") and self.state:
@@ -5282,14 +5590,7 @@ class CurioLabApp:
         role.pack(anchor="w")
 
         for w in (prof_frame, avatar, info_col, name, role):
-            w.bind("<Button-1>", lambda _: messagebox.showinfo(
-                "Researcher Profile",
-                "Name: Dr. Elena Vance\n"
-                "Designation: Lead Research Investigator\n"
-                "Security Clearance: Level 5 (Quantum & Neural Lab)\n"
-                "Active Projects: 4\n"
-                "Laboratory: CurioLab Alpha Facility"
-            ))
+            w.bind("<Button-1>", lambda event: UserProfileModal(self.root, event.x_root - 140, event.y_root + 20, self.state))
 
     # -------------------------------------------------------------------------
     # PAGE REGISTRATION & NAVIGATION ROUTING
@@ -5315,51 +5616,38 @@ class CurioLabApp:
         self.pages["Discovery Journal"] = DiscoveryJournalView(self.content_area, self)
 
         # 7. Settings
-        self.pages["Settings"] = PlaceholderPageView(
-            self.content_area,
-            title="Settings & Laboratory Configuration",
-            subtitle="Configure workspace visual aesthetics, simulation fidelity, and data preferences.",
-            icon="⚙️",
-            accent_color=Theme.AMBER,
-            description="Customize your CurioLab operating parameters. Adjust graphic rendering rates, "
-                        "manage local simulation caches, configure notification filters, and toggle dark lab themes.",
-            features=[
-                ("Graphic & Canvas Rendering Quality", "Toggle 60FPS high-fidelity vs battery-saver rendering pipelines."),
-                ("Telemetry & Privacy Safeguards", "CurioLab operates 100% offline — zero telemetry or tracking sent."),
-                ("Color Palette Customizer", "Switch between Deep Obsidian, Cyber Violet, and High-Contrast Teal."),
-                ("Cache & Storage Manager", "Clear temporary simulation buffers and compact journal indices.")
-            ],
-            sample_cards=[
-                {"title": "Workspace Theme", "desc": "Currently Active: Deep Obsidian Lab (Cyberpunk Teal/Cyan/Purple Accent).", "tag": "APPEARANCE"},
-                {"title": "Simulation Engine Mode", "desc": "Hardware acceleration configured for maximum local precision.", "tag": "COMPUTATION"},
-                {"title": "Data Security & Local Storage", "desc": "All logs stored strictly on local device in zero-cloud offline mode.", "tag": "PRIVACY"},
-            ],
-            app=self
-        )
+        self.pages["Settings"] = SettingsView(self.content_area, self)
 
         # 8. Help & About
-        self.pages["Help & About"] = PlaceholderPageView(
-            self.content_area,
-            title="Help & About CurioLab",
-            subtitle="CurioLab — An Interactive Research & Discovery Platform v1.0.0",
-            icon="❓",
-            accent_color=Theme.CYAN_BRIGHT,
-            description="CurioLab is designed to rekindle the joy of scientific inquiry. "
-                        "Through interactive experiments, investigative challenges, and connected concept graphs, "
-                        "CurioLab bridges the gap between passive reading and active laboratory discovery.",
-            features=[
-                ("Keyboard Navigation", "Use Ctrl+F for Search, Ctrl+1..8 for instantaneous page switching."),
-                ("Zero External Dependencies", "Built purely with Python and Tkinter for maximum desktop portability."),
-                ("Open Scientific Spirit", "Inspired by Feynman, Shannon, Lovelace, Turing, and Curie."),
-                ("Interactive Architecture", "Designed for students, researchers, polymaths, and curious minds.")
-            ],
-            sample_cards=[
-                {"title": "Version Specification", "desc": "CurioLab Desktop Core v1.0.0 (Research Edition) • Python Desktop GUI.", "tag": "BUILD INFO"},
-                {"title": "Design Philosophy", "desc": "Dark futuristic laboratory aesthetic with zero web bloat.", "tag": "PHILOSOPHY"},
-                {"title": "Support & Documentation", "desc": "Comprehensive offline user manual and lab protocol guides included.", "tag": "DOCUMENTATION"},
-            ],
-            app=self
-        )
+        self.pages["Help & About"] = HelpAboutView(self.content_area, self)
+
+    def refresh_theme(self):
+        """Refreshes shell visual tokens and active page styling when Theme changes."""
+        self.root.configure(bg=Theme.BG_ROOT)
+        if hasattr(self, "sidebar"):
+            self.sidebar.configure(bg=Theme.BG_SIDEBAR)
+        if hasattr(self, "main_container"):
+            self.main_container.configure(bg=Theme.BG_ROOT)
+        if hasattr(self, "header"):
+            self.header.configure(bg=Theme.BG_HEADER, highlightbackground=Theme.BORDER_SUBTLE)
+        if hasattr(self, "header_title"):
+            self.header_title.configure(bg=Theme.BG_HEADER, fg=Theme.TEXT_PRIMARY)
+        if hasattr(self, "header_subtitle"):
+            self.header_subtitle.configure(bg=Theme.BG_HEADER, fg=Theme.TEXT_MUTED)
+        if hasattr(self, "content_area"):
+            self.content_area.configure(bg=Theme.BG_ROOT)
+        if hasattr(self, "nav_buttons"):
+            for name, btn in self.nav_buttons.items():
+                if name == self.current_page_name:
+                    btn["frame"].config(bg=Theme.BG_CARD)
+                    btn["indicator"].config(bg=Theme.CYAN)
+                    btn["icon"].config(bg=Theme.BG_CARD, fg=Theme.CYAN)
+                    btn["label"].config(bg=Theme.BG_CARD, fg=Theme.TEXT_PRIMARY)
+                else:
+                    btn["frame"].config(bg=Theme.BG_SIDEBAR)
+                    btn["indicator"].config(bg=Theme.BG_SIDEBAR)
+                    btn["icon"].config(bg=Theme.BG_SIDEBAR, fg=Theme.TEXT_MUTED)
+                    btn["label"].config(bg=Theme.BG_SIDEBAR, fg=Theme.TEXT_SECONDARY)
 
     def navigate_to(self, page_name):
         """Switches the visible page inside content_area without creating new windows."""

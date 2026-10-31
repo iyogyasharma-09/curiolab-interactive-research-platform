@@ -51,8 +51,19 @@ class AppState:
             "dataviz": 0
         }
 
-        # 7. UI Configuration
+        # 7. UI Configuration & Preferences
         self.current_theme = "Deep Obsidian"
+        self.preferences = {
+            "theme_name": "Deep Obsidian",
+            "accent_color": "#06B6D4",
+            "ui_scale": "Standard (100%)",
+            "default_landing_page": "Discovery Hub",
+            "preferred_resource_sort": "Title (A-Z)",
+            "journal_default_type": "Hypothesis",
+            "journal_default_status": "Formulated",
+            "confirm_delete_journal": True,
+            "galaxy_show_particles": True,
+        }
 
         # 8. Pending Citation Draft (for Discovery Journal transfer)
         self.pending_journal_draft = None
@@ -165,6 +176,11 @@ class AppState:
             self.notify()
             return total_award
         return 0
+
+    @property
+    def bookmarks(self):
+        """Returns list of IDs of currently bookmarked resources."""
+        return [r["id"] for r in self.library_resources if r.get("bookmarked")]
 
     def toggle_bookmark(self, resource_id):
         """Toggles the bookmark state of a demonstration library resource."""
@@ -524,8 +540,242 @@ class AppState:
                 }
         return None
 
+    # -------------------------------------------------------------------------
+    # SETTINGS, PREFERENCES & DATA CONTROLS
+    # -------------------------------------------------------------------------
+    def update_preferences(self, **kwargs):
+        """Updates user preferences and notifies observers."""
+        for k, v in kwargs.items():
+            self.preferences[k] = v
+        if "theme_name" in kwargs:
+            self.current_theme = kwargs["theme_name"]
+        self.notify()
+
+    def reset_preferences(self):
+        """Restores default application preferences."""
+        self.preferences = {
+            "theme_name": "Deep Obsidian",
+            "accent_color": "#06B6D4",
+            "ui_scale": "Standard (100%)",
+            "default_landing_page": "Discovery Hub",
+            "preferred_resource_sort": "Title (A-Z)",
+            "journal_default_type": "Hypothesis",
+            "journal_default_status": "Formulated",
+            "confirm_delete_journal": True,
+            "galaxy_show_particles": True,
+        }
+        self.current_theme = "Deep Obsidian"
+        self.notify()
+
+    def reset_bookmarks(self):
+        """Resets all monograph bookmark states back to initial demonstration defaults."""
+        initial_map = {r["id"]: r.get("bookmarked", False) for r in DEMO_LIBRARY_RESOURCES}
+        for r in self.library_resources:
+            r["bookmarked"] = initial_map.get(r["id"], False)
+        self.notifications.insert(0, {
+            "id": f"notif_reset_bm_{datetime.datetime.now().microsecond}",
+            "title": "★ Bookmarks Reset",
+            "desc": "All library monograph bookmarks restored to default curriculum baseline.",
+            "timestamp": "Just now",
+            "accent": "#F59E0B",
+            "read": False,
+            "target_page": "Knowledge Library"
+        })
+        self.notify()
+
+    def reset_journal_entries(self):
+        """Restores all Discovery Journal records back to initial demonstration dataset."""
+        self.journal_entries = copy.deepcopy(DEMO_JOURNAL_ENTRIES)
+        self.pending_journal_draft = None
+        self.notifications.insert(0, {
+            "id": f"notif_reset_journal_{datetime.datetime.now().microsecond}",
+            "title": "📓 Journal Entries Reset",
+            "desc": "Discovery Journal entries restored to baseline educational dataset.",
+            "timestamp": "Just now",
+            "accent": "#10B981",
+            "read": False,
+            "target_page": "Discovery Journal"
+        })
+        self.notify()
+
+    def reset_experiment_runs(self):
+        """Resets all Experiment Lab execution counters back to zero."""
+        self.experiment_runs = {
+            "caesar": 0,
+            "neural": 0,
+            "dataviz": 0
+        }
+        self.notifications.insert(0, {
+            "id": f"notif_reset_exp_{datetime.datetime.now().microsecond}",
+            "title": "⚗️ Experiment Telemetry Reset",
+            "desc": "Execution counters for all laboratory simulations cleared to zero.",
+            "timestamp": "Just now",
+            "accent": "#06B6D4",
+            "read": False,
+            "target_page": "Experiment Lab"
+        })
+        self.notify()
+
+    def reset_detective_progress(self):
+        """Resets Research Detective cleared cases and scores."""
+        self.completed_challenges.clear()
+        self.hints_used.clear()
+        self.detective_score = 0
+        self.notifications.insert(0, {
+            "id": f"notif_reset_det_{datetime.datetime.now().microsecond}",
+            "title": "🔍 Detective Progress Reset",
+            "desc": "Cleared challenge dossiers and detective investigator score reset to zero.",
+            "timestamp": "Just now",
+            "accent": "#8B5CF6",
+            "read": False,
+            "target_page": "Research Detective"
+        })
+        self.notify()
+
+    def reset_all_data(self):
+        """Performs a complete application state reset to pristine demonstration defaults."""
+        self.library_resources = copy.deepcopy(DEMO_LIBRARY_RESOURCES)
+        self.galaxy_graph = copy.deepcopy(DEMO_GALAXY_GRAPH)
+        self.journal_entries = copy.deepcopy(DEMO_JOURNAL_ENTRIES)
+        self.notifications = copy.deepcopy(DEMO_NOTIFICATIONS)
+        self.completed_challenges.clear()
+        self.hints_used.clear()
+        self.detective_score = 0
+        self.experiment_runs = {"caesar": 0, "neural": 0, "dataviz": 0}
+        self.pending_journal_draft = None
+        self.reset_preferences()
+        self.notify()
+
+    # -------------------------------------------------------------------------
+    # NOTIFICATION MANAGEMENT
+    # -------------------------------------------------------------------------
+    def mark_notification_read(self, notif_id):
+        """Marks a specific notification as read."""
+        for n in self.notifications:
+            if n.get("id") == notif_id:
+                n["read"] = True
+                self.notify()
+                return True
+        return False
+
     def clear_notifications(self):
         """Marks all notifications as read."""
         for n in self.notifications:
             n["read"] = True
         self.notify()
+
+    # -------------------------------------------------------------------------
+    # GLOBAL MULTI-MODULE SEARCH ENGINE
+    # -------------------------------------------------------------------------
+    def search_all(self, query):
+        """
+        Executes a federated search across all laboratory modules:
+        - Knowledge Library monographs
+        - Research Galaxy concepts
+        - Discovery Journal research logs
+        - Experiment Lab simulations
+        - Research Detective challenges
+        Returns a structured list of match records.
+        """
+        q = (query or "").strip().lower()
+        if not q:
+            return []
+
+        results = []
+
+        # 1. Search Knowledge Library Monographs
+        for res in self.library_resources:
+            corpus = f"{res.get('title', '')} {res.get('module_domain', '')} {res.get('summary', '')} {res.get('key_equation', '')} {res.get('curator', '')} {res.get('study_notes', '')}".lower()
+            if q in corpus:
+                results.append({
+                    "category": "Knowledge Library",
+                    "badge": "MONOGRAPH",
+                    "icon": "📚",
+                    "id": res.get("id"),
+                    "title": res.get("title"),
+                    "subtitle": f"{res.get('module_domain')} • Level: {res.get('curriculum_level')} ({res.get('year')})",
+                    "snippet": res.get("summary", "")[:130] + ("..." if len(res.get("summary", "")) > 130 else ""),
+                    "accent": "#14B8A6",
+                    "target_page": "Knowledge Library",
+                    "target_id": res.get("id")
+                })
+
+        # 2. Search Research Galaxy Concepts
+        for node in self.galaxy_graph.get("nodes", []):
+            name = node.get("name") or node.get("label", "")
+            corpus = f"{name} {node.get('domain', '')} {node.get('summary', '')} {node.get('difficulty', '')}".lower()
+            if q in corpus:
+                results.append({
+                    "category": "Research Galaxy",
+                    "badge": "CONCEPT",
+                    "icon": "🌌",
+                    "id": node.get("id"),
+                    "title": name,
+                    "subtitle": f"{node.get('domain')} • Level: {node.get('difficulty', 'Standard')}",
+                    "snippet": node.get("summary", "")[:130] + ("..." if len(node.get("summary", "")) > 130 else ""),
+                    "accent": "#8B5CF6",
+                    "target_page": "Research Galaxy",
+                    "target_id": node.get("id")
+                })
+
+        # 3. Search Discovery Journal Entries
+        for entry in self.journal_entries:
+            corpus = f"{entry.get('title', '')} {entry.get('domain', '')} {entry.get('entry_type', '')} {entry.get('research_question', '')} {entry.get('hypothesis', '')} {entry.get('observations', '')} {entry.get('results', '')} {entry.get('conclusion', '')} {entry.get('tags', '')}".lower()
+            if q in corpus:
+                results.append({
+                    "category": "Discovery Journal",
+                    "badge": entry.get("entry_type", "NOTE").upper(),
+                    "icon": "📓",
+                    "id": entry.get("id"),
+                    "title": entry.get("title", "Untitled Entry"),
+                    "subtitle": f"{entry.get('domain')} • [{entry.get('status', 'Formulated')}] {entry.get('timestamp')}",
+                    "snippet": (entry.get("hypothesis") or entry.get("research_question") or entry.get("observations") or entry.get("body", ""))[:130],
+                    "accent": "#10B981",
+                    "target_page": "Discovery Journal",
+                    "target_id": entry.get("id")
+                })
+
+        # 4. Search Experiment Lab Tools
+        experiments = [
+            ("caesar", "Caesar Substitution Cipher", "Cryptography", "Modular shift encryption, frequency cryptanalysis attack, and letter distribution bars.", "Experiment Lab"),
+            ("neural", "Single-Neuron Activation Playground", "Artificial Intelligence", "Interactive 2D decision boundary, weight/bias tuning, and XOR non-linear separation limits.", "Experiment Lab"),
+            ("dataviz", "Interactive Data Visualizer", "Data Science", "Synthetic wave packets, noise injection, and multi-variable chart plotting.", "Experiment Lab")
+        ]
+        for exp_id, exp_name, exp_dom, exp_desc, page in experiments:
+            if q in f"{exp_name} {exp_dom} {exp_desc}".lower():
+                results.append({
+                    "category": "Experiment Lab",
+                    "badge": "SIMULATION",
+                    "icon": "⚗️",
+                    "id": exp_id,
+                    "title": exp_name,
+                    "subtitle": f"{exp_dom} • Interactive Simulation Tool",
+                    "snippet": exp_desc,
+                    "accent": "#06B6D4",
+                    "target_page": page,
+                    "target_id": exp_id
+                })
+
+        # 5. Search Research Detective Challenges
+        cases = [
+            ("cipher_analysis", "Cipher Analysis: Shift Recovery", "Cybersecurity", "Decode intercept Caesar cipher by analyzing natural English letter frequencies.", "Research Detective"),
+            ("data_anomalies", "Telemetry Anomaly: Deep Space Sensor Spikes", "Data Science", "Identify statistical sigma deviations in sensor array temperature baselines.", "Research Detective"),
+            ("statistical_inference", "Statistical Hypothesis: P-Value Testing", "Mathematics", "Evaluate null hypothesis significance on quantum fluctuation trials.", "Research Detective"),
+            ("pattern_recognition", "Pattern Recognition: Soliton Grid Symmetry", "Complexity Science", "Uncover emergent cellular automaton rules in dynamic lattice systems.", "Research Detective")
+        ]
+        for case_id, case_name, case_dom, case_desc, page in cases:
+            if q in f"{case_name} {case_dom} {case_desc}".lower():
+                results.append({
+                    "category": "Research Detective",
+                    "badge": "CASE DOSSIER",
+                    "icon": "🔍",
+                    "id": case_id,
+                    "title": case_name,
+                    "subtitle": f"{case_dom} • Forensic Investigation",
+                    "snippet": case_desc,
+                    "accent": "#F59E0B",
+                    "target_page": page,
+                    "target_id": case_id
+                })
+
+        return results
