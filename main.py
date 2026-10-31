@@ -22,6 +22,8 @@ import sys
 
 from app_state import AppState
 from knowledge_library import KnowledgeLibraryView
+from research_galaxy import ResearchGalaxyView
+from discovery_journal import DiscoveryJournalView
 
 
 # =============================================================================
@@ -5307,31 +5309,10 @@ class CurioLabApp:
         self.pages["Knowledge Library"] = KnowledgeLibraryView(self.content_area, self)
 
         # 5. Research Galaxy
-        self.pages["Research Galaxy"] = PlaceholderPageView(
-            self.content_area,
-            title="Research Galaxy",
-            subtitle="Discover connections, synergies, and bridges between disparate disciplines.",
-            icon="🌌",
-            accent_color=Theme.BLUE,
-            description="Navigate a multidimensional constellation of human knowledge. "
-                        "Watch how thermodynamics connects with information theory, or how evolutionary biology "
-                        "influences genetic algorithm optimization in artificial intelligence.",
-            features=[
-                ("Interactive Force-Directed Node Graph", "Pan and zoom across interconnected epistemological domains."),
-                ("Epistemic Bridge Highlighting", "Pinpoint unexpected conceptual bridges between completely different sciences."),
-                ("Serendipity Discovery Engine", "Generates novel cross-disciplinary research prompts at the press of a button."),
-                ("Domain Affinity Heatmaps", "View density of contemporary research papers clustering around knowledge nodes.")
-            ],
-            sample_cards=[
-                {"title": "Thermodynamics ⟷ Information Theory", "desc": "Landauer's Principle: the minimum physical energy dissipation of erasing a single bit.", "tag": "BRIDGE NODE"},
-                {"title": "Neurobiology ⟷ Deep Learning", "desc": "Transforming biological dendritic computation into attention mechanisms and transformers.", "tag": "BRIDGE NODE"},
-                {"title": "Quantum Mechanics ⟷ Cryptography", "desc": "From Shor's factoring algorithm to post-quantum lattice-based encryption standards.", "tag": "BRIDGE NODE"},
-            ],
-            app=self
-        )
+        self.pages["Research Galaxy"] = ResearchGalaxyView(self.content_area, self)
 
         # 6. Discovery Journal
-        self.pages["Discovery Journal"] = DiscoveryJournalDraftView(self.content_area, self)
+        self.pages["Discovery Journal"] = DiscoveryJournalView(self.content_area, self)
 
         # 7. Settings
         self.pages["Settings"] = PlaceholderPageView(
@@ -5422,10 +5403,10 @@ class CurioLabApp:
         # Pack and display target page
         self.pages[page_name].pack(fill="both", expand=True)
 
-        # Refresh dashboard statistics when navigating to Discovery Hub
+        # Refresh page states
         if page_name == "Discovery Hub" and hasattr(self.pages[page_name], "update_statistics_display"):
             self.pages[page_name].update_statistics_display()
-        elif page_name == "Discovery Journal" and hasattr(self.pages[page_name], "on_navigate_to"):
+        elif hasattr(self.pages[page_name], "on_navigate_to"):
             self.pages[page_name].on_navigate_to()
 
 
