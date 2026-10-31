@@ -270,7 +270,8 @@ class KnowledgeLibraryView(tk.Frame):
         self.left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
 
         # Left Column: Resource Cards List (Scrollable)
-        self.left_scroll = tk.Canvas(self.left_panel, bg=Theme.BG_ROOT, highlightthickness=0)
+        self.left_scroll = tk.Canvas(self.left_panel, bg=Theme.BG_ROOT, highlightthickness=0, yscrollincrement=1)
+        self.left_scroll._is_curiolab_scroll_canvas = True
         self.left_scrollbar = ttk.Scrollbar(self.left_panel, orient="vertical", command=self.left_scroll.yview)
         self.cards_container = tk.Frame(self.left_scroll, bg=Theme.BG_ROOT)
 
@@ -299,7 +300,8 @@ class KnowledgeLibraryView(tk.Frame):
         self.right_panel.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
 
         # Right Column: Scrollable Detail Inspector
-        self.right_scroll = tk.Canvas(self.right_panel, bg=Theme.BG_CARD, highlightthickness=0)
+        self.right_scroll = tk.Canvas(self.right_panel, bg=Theme.BG_CARD, highlightthickness=0, yscrollincrement=1)
+        self.right_scroll._is_curiolab_scroll_canvas = True
         self.right_scrollbar = ttk.Scrollbar(self.right_panel, orient="vertical", command=self.right_scroll.yview)
         self.detail_container = tk.Frame(self.right_scroll, bg=Theme.BG_CARD, padx=24, pady=18)
 
@@ -945,8 +947,8 @@ class KnowledgeLibraryView(tk.Frame):
 
         if target_canvas:
             widget.bind("<MouseWheel>", lambda e, c=target_canvas: self._scroll_canvas(e, c))
-            widget.bind("<Button-4>", lambda e, c=target_canvas: c.yview_scroll(-1, "units"))
-            widget.bind("<Button-5>", lambda e, c=target_canvas: c.yview_scroll(1, "units"))
+            widget.bind("<Button-4>", lambda e, c=target_canvas: c.yview_scroll(-32, "units"))
+            widget.bind("<Button-5>", lambda e, c=target_canvas: c.yview_scroll(32, "units"))
 
         for child in widget.winfo_children():
             self._bind_mousewheel_tree(child, target_canvas)
@@ -954,7 +956,13 @@ class KnowledgeLibraryView(tk.Frame):
     def _scroll_canvas(self, event, canvas):
         import sys
         if sys.platform == "darwin":
-            if event.delta != 0:
-                canvas.yview_scroll(int(-1 * event.delta), "units")
+            if abs(event.delta) < 120:
+                step = int(-1 * event.delta * 16)
+                if step == 0 and event.delta != 0:
+                    step = -2 if event.delta > 0 else 2
+            else:
+                step = int(-1 * (event.delta / 120.0) * 36)
         else:
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            step = int(-1 * (event.delta / 120.0) * 36)
+        canvas.yview_scroll(step, "units")
+        return "break"

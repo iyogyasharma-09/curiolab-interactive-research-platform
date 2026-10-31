@@ -175,7 +175,8 @@ class HelpAboutView(tk.Frame):
         )
         content_card.pack(side="right", fill="both", expand=True)
 
-        self.reader_canvas = tk.Canvas(content_card, bg=Theme.BG_CARD, highlightthickness=0)
+        self.reader_canvas = tk.Canvas(content_card, bg=Theme.BG_CARD, highlightthickness=0, yscrollincrement=1)
+        self.reader_canvas._is_curiolab_scroll_canvas = True
         self.reader_vbar = ttk.Scrollbar(content_card, orient="vertical", command=self.reader_canvas.yview)
         self.reader_canvas.configure(yscrollcommand=self.reader_vbar.set)
 

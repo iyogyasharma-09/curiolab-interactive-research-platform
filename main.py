@@ -200,7 +200,8 @@ class ScrollableFrame(tk.Frame):
     def __init__(self, parent, bg=Theme.BG_ROOT, **kwargs):
         super().__init__(parent, bg=bg, **kwargs)
 
-        self.canvas = tk.Canvas(self, bg=bg, highlightthickness=0, borderwidth=0)
+        self.canvas = tk.Canvas(self, bg=bg, highlightthickness=0, borderwidth=0, yscrollincrement=1)
+        self.canvas._is_curiolab_scroll_canvas = True
         self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
         self.scrollable_content = tk.Frame(self.canvas, bg=bg)
 
@@ -227,21 +228,22 @@ class ScrollableFrame(tk.Frame):
 
     def _on_mousewheel(self, event):
         if sys.platform == "darwin":
-            # On macOS, event.delta is a smaller value or trackpad gesture
-            delta = event.delta
-            if delta != 0:
-                self.canvas.yview_scroll(int(-1 * delta), "units")
+            if abs(event.delta) < 120:
+                step = int(-1 * event.delta * 16)
+                if step == 0 and event.delta != 0:
+                    step = -2 if event.delta > 0 else 2
+            else:
+                step = int(-1 * (event.delta / 120.0) * 36)
         else:
-            # Windows event.delta is typically 120 or -120
-            self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            step = int(-1 * (event.delta / 120.0) * 36)
+        self.canvas.yview_scroll(step, "units")
+        return "break"
 
     def bind_mousewheel(self, widget):
         widget.bind("<MouseWheel>", self._on_mousewheel)
         # Linux bindings
-        widget.bind("<Button-4>", lambda e: self.canvas.yview_scroll(-1, "units"))
-        widget.bind("<Button-5>", lambda e: self.canvas.yview_scroll(1, "units"))
-        for child in widget.winfo_children():
-            self.bind_mousewheel(child)
+        widget.bind("<Button-4>", lambda e: self.canvas.yview_scroll(-32, "units"))
+        widget.bind("<Button-5>", lambda e: self.canvas.yview_scroll(32, "units"))
 
 
 # =============================================================================
@@ -5294,6 +5296,11 @@ class CurioLabApp:
             self.root.bind(f"<Control-Key-{idx}>", lambda _, name=p_name: self.navigate_to(name))
             self.root.bind(f"<Command-Key-{idx}>", lambda _, name=p_name: self.navigate_to(name))
 
+        # Application-wide unified smooth mouse-wheel & trackpad event dispatcher
+        self.root.bind_all("<MouseWheel>", self._on_global_mousewheel, add="+")
+        self.root.bind_all("<Button-4>", self._on_global_button4, add="+")
+        self.root.bind_all("<Button-5>", self._on_global_button5, add="+")
+
     def _center_window(self, width, height):
         """Centers window on primary display."""
         self.root.update_idletasks()
@@ -5738,6 +5745,86 @@ class CurioLabApp:
             self.pages[page_name].update_statistics_display()
         elif hasattr(self.pages[page_name], "on_navigate_to"):
             self.pages[page_name].on_navigate_to()
+
+    # -------------------------------------------------------------------------
+    # APPLICATION-WIDE SMOOTH MOUSEWHEEL & TRACKPAD SCROLLING
+    # -------------------------------------------------------------------------
+    def _on_global_mousewheel(self, event):
+        """
+        Application-wide smooth mouse-wheel and trackpad event dispatcher.
+        Dynamically finds the interactive component or scrollable canvas under the cursor.
+        """
+        try:
+            w = self.root.winfo_containing(event.x_root, event.y_root)
+        except Exception:
+            return
+
+        cur = w
+        while cur and cur != self.root:
+            # 1. Research Galaxy Canvas (Zooming)
+            if getattr(cur, "_is_galaxy_canvas", False):
+                g_view = getattr(cur, "galaxy_view", None)
+                if g_view and hasattr(g_view, "_on_canvas_mousewheel"):
+                    g_view._on_canvas_mousewheel(event)
+                return "break"
+
+            # 2. Text widget with overflow content (Text editing/reading)
+            if isinstance(cur, tk.Text):
+                try:
+                    yview = cur.yview()
+                    if yview != (0.0, 1.0):
+                        delta = event.delta
+                        step = -1 if delta > 0 else 1
+                        cur.yview_scroll(step, "units")
+                        return "break"
+                except Exception:
+                    pass
+
+            # 3. Dedicated CurioLab scrollable canvas (Smooth pixel scrolling)
+            if getattr(cur, "_is_curiolab_scroll_canvas", False):
+                try:
+                    if sys.platform == "darwin":
+                        if abs(event.delta) < 120:
+                            step = int(-1 * event.delta * 16)
+                            if step == 0 and event.delta != 0:
+                                step = -2 if event.delta > 0 else 2
+                        else:
+                            step = int(-1 * (event.delta / 120.0) * 36)
+                    else:
+                        step = int(-1 * (event.delta / 120.0) * 36)
+                    cur.yview_scroll(step, "units")
+                    return "break"
+                except Exception:
+                    pass
+
+            cur = getattr(cur, "master", None)
+
+    def _on_global_button4(self, event):
+        self._dispatch_scroll_step(event, -32)
+
+    def _on_global_button5(self, event):
+        self._dispatch_scroll_step(event, 32)
+
+    def _dispatch_scroll_step(self, event, step):
+        try:
+            w = self.root.winfo_containing(event.x_root, event.y_root)
+        except Exception:
+            return
+
+        cur = w
+        while cur and cur != self.root:
+            if getattr(cur, "_is_galaxy_canvas", False):
+                g_view = getattr(cur, "galaxy_view", None)
+                if g_view and hasattr(g_view, "_zoom_view"):
+                    g_view._zoom_view(1.08 if step < 0 else 0.92, anchor_x=event.x, anchor_y=event.y)
+                return "break"
+            if getattr(cur, "_is_curiolab_scroll_canvas", False):
+                try:
+                    cur.yview_scroll(step, "units")
+                    return "break"
+                except Exception:
+                    pass
+            cur = getattr(cur, "master", None)
 
 
 # =============================================================================

@@ -376,7 +376,8 @@ class DiscoveryJournalView(tk.Frame):
         self.list_count_lbl.pack(side="left")
 
         # Scrollable area for cards
-        self.list_canvas = tk.Canvas(self.list_card, bg=Theme.BG_CARD, highlightthickness=0)
+        self.list_canvas = tk.Canvas(self.list_card, bg=Theme.BG_CARD, highlightthickness=0, yscrollincrement=1)
+        self.list_canvas._is_curiolab_scroll_canvas = True
         self.list_vbar = ttk.Scrollbar(self.list_card, orient="vertical", command=self.list_canvas.yview)
         self.list_canvas.configure(yscrollcommand=self.list_vbar.set)
 
@@ -398,7 +399,8 @@ class DiscoveryJournalView(tk.Frame):
         )
         self.detail_card.pack(side="right", fill="both", expand=True)
 
-        self.detail_canvas = tk.Canvas(self.detail_card, bg=Theme.BG_CARD, highlightthickness=0)
+        self.detail_canvas = tk.Canvas(self.detail_card, bg=Theme.BG_CARD, highlightthickness=0, yscrollincrement=1)
+        self.detail_canvas._is_curiolab_scroll_canvas = True
         self.detail_vbar = ttk.Scrollbar(self.detail_card, orient="vertical", command=self.detail_canvas.yview)
         self.detail_canvas.configure(yscrollcommand=self.detail_vbar.set)
 
@@ -874,7 +876,8 @@ class DiscoveryJournalView(tk.Frame):
         )
         editor_card.pack(fill="both", expand=True)
 
-        self.editor_canvas = tk.Canvas(editor_card, bg=Theme.BG_CARD, highlightthickness=0)
+        self.editor_canvas = tk.Canvas(editor_card, bg=Theme.BG_CARD, highlightthickness=0, yscrollincrement=1)
+        self.editor_canvas._is_curiolab_scroll_canvas = True
         self.editor_vbar = ttk.Scrollbar(editor_card, orient="vertical", command=self.editor_canvas.yview)
         self.editor_canvas.configure(yscrollcommand=self.editor_vbar.set)
 

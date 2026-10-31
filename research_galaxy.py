@@ -56,6 +56,11 @@ class ResearchGalaxyView(tk.Frame):
         self.pan_y = 0.0
         self._drag_start_x = 0
         self._drag_start_y = 0
+        self._press_x = 0
+        self._press_y = 0
+        self._is_dragging = False
+        self._pressed_node_id = None
+        self._redraw_job = None
 
         # UI Filter & Selection state
         self.search_var = tk.StringVar()
@@ -65,6 +70,7 @@ class ResearchGalaxyView(tk.Frame):
 
         # Canvas item tracking
         self.node_canvas_items = {}  # node_id -> list of canvas item IDs
+        self.item_to_node_id = {}    # canvas item ID -> node_id
         self.edge_canvas_items = []  # list of edge info dicts
 
         # Build UI layout
@@ -321,22 +327,33 @@ class ResearchGalaxyView(tk.Frame):
             highlightthickness=0,
             cursor="fleur"
         )
+        self.canvas._is_galaxy_canvas = True
+        self.canvas.galaxy_view = self
         self.canvas.pack(fill="both", expand=True)
 
         # Canvas Interaction Event Bindings
         self.canvas.bind("<ButtonPress-1>", self._on_canvas_press)
         self.canvas.bind("<B1-Motion>", self._on_canvas_drag)
+        self.canvas.bind("<ButtonRelease-1>", self._on_canvas_release)
+        self.canvas.bind("<ButtonPress-2>", self._on_canvas_press)
+        self.canvas.bind("<B2-Motion>", self._on_canvas_drag)
+        self.canvas.bind("<ButtonRelease-2>", self._on_canvas_release)
+        self.canvas.bind("<ButtonPress-3>", self._on_canvas_press)
+        self.canvas.bind("<B3-Motion>", self._on_canvas_drag)
+        self.canvas.bind("<ButtonRelease-3>", self._on_canvas_release)
         self.canvas.bind("<MouseWheel>", self._on_canvas_mousewheel)
-        self.canvas.bind("<Button-4>", lambda _: self._zoom_view(1.15))
-        self.canvas.bind("<Button-5>", lambda _: self._zoom_view(0.85))
-        self.canvas.bind("<Configure>", lambda _: self._redraw_galaxy())
+        self.canvas.bind("<Button-4>", lambda e: self._zoom_view(1.08, anchor_x=e.x, anchor_y=e.y))
+        self.canvas.bind("<Button-5>", lambda e: self._zoom_view(0.92, anchor_x=e.x, anchor_y=e.y))
+        self.canvas.bind("<Configure>", lambda _: self._request_redraw())
 
-        # Inspector internal scrollable canvas
+        # Inspector internal scrollable canvas with smooth scrolling
         self.inspector_scroll_canvas = tk.Canvas(
             self.inspector_card,
             bg=Theme.BG_CARD,
-            highlightthickness=0
+            highlightthickness=0,
+            yscrollincrement=1
         )
+        self.inspector_scroll_canvas._is_curiolab_scroll_canvas = True
         self.inspector_vbar = ttk.Scrollbar(
             self.inspector_card,
             orient="vertical",
@@ -390,40 +407,123 @@ class ResearchGalaxyView(tk.Frame):
         self.pan_y = (ch / 2.0) - (290 * self.zoom)
         self._redraw_galaxy()
 
-    def _zoom_view(self, factor):
-        """Applies zoom centered on canvas midpoint."""
+    def _zoom_view(self, factor, anchor_x=None, anchor_y=None):
+        """
+        Applies smooth incremental zoom.
+        If anchor_x/y are provided, zooms anchored at that screen coordinate.
+        Otherwise, zooms centered on the canvas midpoint.
+        """
         cw = self.canvas.winfo_width()
         ch = self.canvas.winfo_height()
-        mid_x = cw / 2.0
-        mid_y = ch / 2.0
+        if cw < 10:
+            cw = 800.0
+        if ch < 10:
+            ch = 600.0
 
-        new_zoom = max(0.45, min(2.8, self.zoom * factor))
-        if abs(new_zoom - self.zoom) < 0.001:
+        if anchor_x is None:
+            anchor_x = cw / 2.0
+        if anchor_y is None:
+            anchor_y = ch / 2.0
+
+        min_zoom = 0.35
+        max_zoom = 3.20
+
+        new_zoom = max(min_zoom, min(max_zoom, self.zoom * factor))
+        if abs(new_zoom - self.zoom) < 0.0005:
             return
 
-        # Maintain center point
+        # Anchor formula: Keep the world coordinate under (anchor_x, anchor_y) stationary
         scale = new_zoom / self.zoom
-        self.pan_x = mid_x - (mid_x - self.pan_x) * scale
-        self.pan_y = mid_y - (mid_y - self.pan_y) * scale
+        self.pan_x = anchor_x - (anchor_x - self.pan_x) * scale
+        self.pan_y = anchor_y - (anchor_y - self.pan_y) * scale
         self.zoom = new_zoom
+        self._request_redraw()
+
+    def _request_redraw(self):
+        """Coalesces rapid redraw requests (e.g. during wheel/trackpad scrolling)."""
+        if getattr(self, "_redraw_job", None) is not None:
+            return
+        self._redraw_job = self.after_idle(self._execute_redraw_job)
+
+    def _execute_redraw_job(self):
+        self._redraw_job = None
         self._redraw_galaxy()
 
     def _on_canvas_press(self, event):
+        self._press_x = event.x
+        self._press_y = event.y
         self._drag_start_x = event.x
         self._drag_start_y = event.y
+        self._is_dragging = False
+
+        # Find if a node was clicked under cursor
+        clicked_items = self.canvas.find_withtag("current")
+        self._pressed_node_id = None
+        for it in clicked_items:
+            if it in self.item_to_node_id:
+                self._pressed_node_id = self.item_to_node_id[it]
+                break
+
+        # Fallback proximity check for touch/trackpad taps
+        if not self._pressed_node_id:
+            wx, wy = self._screen_to_world(event.x, event.y)
+            nodes = self.app.state.get_galaxy_nodes() if hasattr(self.app, "state") and self.app.state else []
+            best_node = None
+            best_dist = 999999
+            for n in nodes:
+                d = math.hypot(n.get("x", 0) - wx, n.get("y", 0) - wy)
+                if d < best_dist:
+                    best_dist = d
+                    best_node = n
+            if best_node and (best_dist * self.zoom) <= 26.0:
+                self._pressed_node_id = best_node["id"]
 
     def _on_canvas_drag(self, event):
         dx = event.x - self._drag_start_x
         dy = event.y - self._drag_start_y
-        self.pan_x += dx
-        self.pan_y += dy
-        self._drag_start_x = event.x
-        self._drag_start_y = event.y
-        self._redraw_galaxy()
+        total_dist = math.hypot(event.x - self._press_x, event.y - self._press_y)
+
+        # 4px deadzone distinguishes a deliberate pan from an in-place click
+        if total_dist > 4:
+            self._is_dragging = True
+            self.canvas.config(cursor="fleur")
+
+        if self._is_dragging and (dx != 0 or dy != 0):
+            self.pan_x += dx
+            self.pan_y += dy
+            self._drag_start_x = event.x
+            self._drag_start_y = event.y
+            # Direct canvas translation for instantaneous, smooth 60fps panning
+            self.canvas.move("all", dx, dy)
+
+    def _on_canvas_release(self, event):
+        if not self._is_dragging:
+            # Click without drag: select clicked node
+            if self._pressed_node_id:
+                self.select_node(self._pressed_node_id)
+        else:
+            # Drag completed
+            self._is_dragging = False
+            self.canvas.config(cursor="fleur")
+            self._redraw_galaxy()
 
     def _on_canvas_mousewheel(self, event):
-        factor = 1.15 if event.delta > 0 else 0.85
-        self._zoom_view(factor)
+        """
+        Smooth, proportional mouse-wheel and trackpad zoom handler.
+        Handles macOS continuous variable delta values and Windows 120-unit increments.
+        """
+        if abs(event.delta) >= 120:
+            # Windows or traditional notched mouse wheel
+            ticks = event.delta / 120.0
+            factor = math.pow(1.08, ticks)
+        else:
+            # macOS smooth trackpad or high-resolution mouse wheel
+            delta = max(-25.0, min(25.0, float(event.delta)))
+            factor = 1.0 + (delta * 0.008)
+            factor = max(0.80, min(1.25, factor))
+
+        self._zoom_view(factor, anchor_x=event.x, anchor_y=event.y)
+        return "break"
 
     def _world_to_screen(self, wx, wy):
         sx = wx * self.zoom + self.pan_x
@@ -440,8 +540,16 @@ class ResearchGalaxyView(tk.Frame):
     # -------------------------------------------------------------------------
     def _redraw_galaxy(self):
         """Renders the dark-space celestial background, epistemic edges, and interactive nodes."""
+        if getattr(self, "_redraw_job", None) is not None:
+            try:
+                self.after_cancel(self._redraw_job)
+            except Exception:
+                pass
+            self._redraw_job = None
+
         self.canvas.delete("all")
         self.node_canvas_items.clear()
+        self.item_to_node_id.clear()
 
         cw = self.canvas.winfo_width()
         ch = self.canvas.winfo_height()
@@ -651,11 +759,11 @@ class ResearchGalaxyView(tk.Frame):
             )
             item_group.append(txt_id)
 
-            # Store canvas item references and bind click events
+            # Store canvas item references and bind hover events
             self.node_canvas_items[nid] = item_group
 
             for it in item_group:
-                self.canvas.tag_bind(it, "<Button-1>", lambda _, n=nid: self.select_node(n))
+                self.item_to_node_id[it] = nid
                 self.canvas.tag_bind(it, "<Enter>", lambda _, n=nid: self._on_node_hover_enter(n))
                 self.canvas.tag_bind(it, "<Leave>", lambda _, n=nid: self._on_node_hover_leave(n))
 
@@ -678,10 +786,12 @@ class ResearchGalaxyView(tk.Frame):
             )
 
     def _on_node_hover_enter(self, node_id):
-        self.canvas.config(cursor="hand2")
+        if not getattr(self, "_is_dragging", False):
+            self.canvas.config(cursor="hand2")
 
     def _on_node_hover_leave(self, node_id):
-        self.canvas.config(cursor="fleur")
+        if not getattr(self, "_is_dragging", False):
+            self.canvas.config(cursor="fleur")
 
     # -------------------------------------------------------------------------
     # SELECTION & RELATIONSHIP EXPLORATION

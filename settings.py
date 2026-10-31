@@ -71,7 +71,8 @@ class SettingsView(tk.Frame):
         container = tk.Frame(self, bg=Theme.BG_ROOT)
         container.pack(fill="both", expand=True, padx=32, pady=(0, 16))
 
-        self.canvas = tk.Canvas(container, bg=Theme.BG_ROOT, highlightthickness=0)
+        self.canvas = tk.Canvas(container, bg=Theme.BG_ROOT, highlightthickness=0, yscrollincrement=1)
+        self.canvas._is_curiolab_scroll_canvas = True
         self.vbar = ttk.Scrollbar(container, orient="vertical", command=self.canvas.yview)
         self.canvas.configure(yscrollcommand=self.vbar.set)
 
