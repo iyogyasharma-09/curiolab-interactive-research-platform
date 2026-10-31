@@ -18,6 +18,9 @@ from tkinter import ttk, messagebox
 import math
 import random
 import datetime
+import sys
+
+from app_state import AppState
 
 
 # =============================================================================
@@ -175,10 +178,26 @@ class StatCard(tk.Frame):
         self.accent_line = tk.Frame(self, bg=accent_color, height=3)
         self.accent_line.pack(fill="x", pady=(14, 0))
 
+        self.val_lbl = val_lbl
+        self.title_lbl = title_lbl
+        self.sub_lbl = sub_lbl
+        self.trend_lbl = trend_lbl
+
         self.child_labels = [top_row, icon_lbl, trend_lbl, val_lbl, title_lbl, sub_lbl]
         for child in self.child_labels:
             child.bind("<Enter>", self._on_enter)
             child.bind("<Leave>", self._on_leave)
+
+    def update_values(self, value=None, title=None, subtitle=None, trend=None):
+        """Dynamically updates metric value, title, subtitle, and trend pill."""
+        if value is not None:
+            self.val_lbl.config(text=str(value))
+        if title is not None:
+            self.title_lbl.config(text=str(title))
+        if subtitle is not None:
+            self.sub_lbl.config(text=str(subtitle))
+        if trend is not None:
+            self.trend_lbl.config(text=f" ● {trend} ")
 
     def _on_enter(self, _):
         self.config(bg=Theme.BG_CARD_HOVER, highlightbackground=self.accent_color)
@@ -230,11 +249,20 @@ class ScrollableFrame(tk.Frame):
         self.canvas.itemconfig(self.window_id, width=event.width)
 
     def _on_mousewheel(self, event):
-        # Windows event.delta is typically 120 or -120
-        self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        if sys.platform == "darwin":
+            # On macOS, event.delta is a smaller value or trackpad gesture
+            delta = event.delta
+            if delta != 0:
+                self.canvas.yview_scroll(int(-1 * delta), "units")
+        else:
+            # Windows event.delta is typically 120 or -120
+            self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
     def bind_mousewheel(self, widget):
         widget.bind("<MouseWheel>", self._on_mousewheel)
+        # Linux bindings
+        widget.bind("<Button-4>", lambda e: self.canvas.yview_scroll(-1, "units"))
+        widget.bind("<Button-5>", lambda e: self.canvas.yview_scroll(1, "units"))
         for child in widget.winfo_children():
             self.bind_mousewheel(child)
 
@@ -244,13 +272,14 @@ class ScrollableFrame(tk.Frame):
 # =============================================================================
 class NotificationPopup(tk.Toplevel):
     """Futuristic laboratory notification center dropdown."""
-    def __init__(self, parent, x, y, on_clear_callback=None):
+    def __init__(self, parent, x, y, on_clear_callback=None, app_state=None):
         super().__init__(parent)
         self.overrideredirect(True)
         self.configure(bg=Theme.BG_CARD_ELEVATED)
         self.geometry(f"360x380+{x}+{y}")
         self.attributes("-topmost", True)
         self.on_clear = on_clear_callback
+        self.app_state = app_state
 
         # Border wrapper
         wrapper = tk.Frame(self, bg=Theme.BG_CARD_ELEVATED,
@@ -272,12 +301,18 @@ class NotificationPopup(tk.Toplevel):
         close_btn.bind("<Button-1>", lambda _: self.destroy())
 
         # Notification items
-        items = [
-            ("⚡ Quantum Simulation Finished", "Wave packet dispersion simulation #42 converged at 99.8% precision.", "10m ago", Theme.CYAN),
-            ("🔍 Detective Case Solved", "Dr. Vance concluded investigation 'The Solar Wind Particle Anomaly'.", "1h ago", Theme.PURPLE),
-            ("📚 New Knowledge Paper", "'Topological Insulators & Quantum Computing' added to library.", "3h ago", Theme.TEAL),
-            ("💡 Discovery Recorded", "'Neural Synchrony in Collective Problem Solving' peer reviewed.", "Yesterday", Theme.EMERALD),
-        ]
+        if self.app_state and hasattr(self.app_state, "notifications") and self.app_state.notifications:
+            items = [
+                (n.get("title", "Notification"), n.get("desc", ""), n.get("timestamp", "Recent"), n.get("accent", Theme.CYAN))
+                for n in self.app_state.notifications[:4]
+            ]
+        else:
+            items = [
+                ("⚡ Quantum Simulation Finished", "Wave packet dispersion simulation #42 converged at 99.8% precision.", "10m ago", Theme.CYAN),
+                ("🔍 Detective Case Solved", "Dr. Vance concluded investigation 'The Solar Wind Particle Anomaly'.", "1h ago", Theme.PURPLE),
+                ("📚 New Knowledge Paper", "'Topological Insulators & Quantum Computing' added to library.", "3h ago", Theme.TEAL),
+                ("💡 Discovery Recorded", "'Neural Synchrony in Collective Problem Solving' peer reviewed.", "Yesterday", Theme.EMERALD),
+            ]
 
         for n_title, n_desc, n_time, color in items:
             card = tk.Frame(wrapper, bg=Theme.BG_CARD,
@@ -310,6 +345,8 @@ class NotificationPopup(tk.Toplevel):
         self.focus_set()
 
     def _clear_all(self, _):
+        if self.app_state and hasattr(self.app_state, "clear_notifications"):
+            self.app_state.clear_notifications()
         if self.on_clear:
             self.on_clear()
         self.destroy()
@@ -344,6 +381,10 @@ class DiscoveryHubView(tk.Frame):
 
         # Ensure mousewheel scrolls across all created widgets
         self.scroll_frame.bind_mousewheel(content)
+
+        # Subscribe to AppState observer notifications
+        if hasattr(self.app, "state") and self.app.state:
+            self.app.state.subscribe(self.update_statistics_display)
 
     def _build_welcome_banner(self, parent):
         """Visually appealing dark futuristic welcome banner."""
@@ -390,7 +431,7 @@ class DiscoveryHubView(tk.Frame):
                      command=lambda: self.app.navigate_to("Research Detective")).pack(side="left")
 
     def _build_statistics_grid(self, parent):
-        """Displays 4 prominent laboratory statistics cards."""
+        """Displays 4 prominent data-driven laboratory statistics cards."""
         stats_frame = tk.Frame(parent, bg=Theme.BG_ROOT)
         stats_frame.pack(fill="x", padx=32, pady=(0, 20))
 
@@ -399,17 +440,83 @@ class DiscoveryHubView(tk.Frame):
         stats_frame.columnconfigure(2, weight=1, uniform="stat")
         stats_frame.columnconfigure(3, weight=1, uniform="stat")
 
-        cards_data = [
-            ("8 Experiments", "Active & Simulated", "🧪", "Simulated labs", Theme.CYAN, "+2 this month"),
-            ("5 Research Cases", "Detective Mysteries", "🔍", "3 resolved, 2 active", Theme.PURPLE, "60% solved"),
-            ("24 Knowledge Resources", "Indexed Papers & Books", "📚", "Cross-domain library", Theme.TEAL, "+6 new"),
-            ("12 Discoveries", "Documented Breakthroughs", "💡", "Peer-verified findings", Theme.EMERALD, "Top 5%"),
-        ]
+        self.stat_cards = {}
 
-        for col, (title, sub, icon, ctx, color, trend) in enumerate(cards_data):
-            card = StatCard(stats_frame, title=title, value=title.split()[0],
-                            icon=icon, subtitle=ctx, accent_color=color, trend=trend)
-            card.grid(row=0, column=col, padx=(0 if col == 0 else 8, 0 if col == 3 else 8), sticky="nsew")
+        # 1. Interactive Labs Card
+        c1 = StatCard(stats_frame, title="Interactive Labs", value="3",
+                      icon="🧪", subtitle="0 executions recorded", accent_color=Theme.CYAN, trend="Ready")
+        c1.grid(row=0, column=0, padx=(0, 8), sticky="nsew")
+        self.stat_cards["experiments"] = c1
+
+        # 2. Detective Dossiers Card
+        c2 = StatCard(stats_frame, title="Dossiers Solved", value="0/14",
+                      icon="🔍", subtitle="0 score pts earned", accent_color=Theme.PURPLE, trend="0% closed")
+        c2.grid(row=0, column=1, padx=(8, 8), sticky="nsew")
+        self.stat_cards["cases"] = c2
+
+        # 3. Demonstration Resources Card
+        c3 = StatCard(stats_frame, title="Demo Resources", value="6",
+                      icon="📚", subtitle="1 bookmarked for study", accent_color=Theme.TEAL, trend="Curated")
+        c3.grid(row=0, column=2, padx=(8, 8), sticky="nsew")
+        self.stat_cards["library"] = c3
+
+        # 4. Lab Journal Entries Card
+        c4 = StatCard(stats_frame, title="Journal Entries", value="4",
+                      icon="💡", subtitle="1 verified hypothesis", accent_color=Theme.EMERALD, trend="Active")
+        c4.grid(row=0, column=3, padx=(8, 0), sticky="nsew")
+        self.stat_cards["discoveries"] = c4
+
+        # Initial live refresh from AppState
+        self.update_statistics_display()
+
+    def update_statistics_display(self):
+        """Refreshes the 4 statistics cards with live data calculated from AppState."""
+        if not hasattr(self, "stat_cards") or not self.stat_cards:
+            return
+        if not hasattr(self.app, "state") or self.app.state is None:
+            return
+
+        m = self.app.state.get_metrics()
+
+        # 1. Experiments
+        exp_runs = m["total_experiment_executions"]
+        self.stat_cards["experiments"].update_values(
+            value=f"{m['experiments_count']}",
+            title="Interactive Labs",
+            subtitle=f"{exp_runs} execution{'s' if exp_runs != 1 else ''} recorded",
+            trend=f"{exp_runs} runs" if exp_runs > 0 else "Ready"
+        )
+
+        # 2. Research Detective Cases
+        solved = m["solved_challenges_count"]
+        total = m["total_challenges_count"]
+        score = m["detective_score"]
+        self.stat_cards["cases"].update_values(
+            value=f"{solved}/{total}",
+            title="Dossiers Solved",
+            subtitle=f"{score} score pts earned",
+            trend=f"{m['curriculum_pct']:.0f}% closed"
+        )
+
+        # 3. Knowledge Resources
+        lib_count = m["library_count"]
+        bm_count = m["bookmarked_count"]
+        self.stat_cards["library"].update_values(
+            value=f"{lib_count}",
+            title="Demo Resources",
+            subtitle=f"{bm_count} bookmarked for study",
+            trend=f"{bm_count} saved"
+        )
+
+        # 4. Discoveries (Journal)
+        j_count = m["journal_count"]
+        v_count = m["verified_hypotheses"]
+        self.stat_cards["discoveries"].update_values(
+            value=f"{j_count}",
+            title="Journal Entries",
+            subtitle=f"{v_count} verified hypothesis",
+            trend=f"{v_count} verified"
+        )
 
     def _build_main_dashboard_layout(self, parent):
         """Two-column main layout for Quick Exploration, Discoveries, Curiosity, and Activity."""
@@ -1474,6 +1581,8 @@ class ExperimentLabView(tk.Frame):
             text=f"✓ Success: Encrypted {len(raw_text)} characters using shift k = {shift} (normalized: +{norm_shift}). Preserved case, spaces, and symbols.",
             fg=Theme.EMERALD
         )
+        if hasattr(self.app, "state") and self.app.state:
+            self.app.state.record_experiment_run("caesar")
 
     def _caesar_decrypt(self):
         """Performs decryption with comprehensive status reporting."""
@@ -1505,6 +1614,8 @@ class ExperimentLabView(tk.Frame):
             text=f"✓ Success: Decrypted {len(raw_text)} characters using shift k = {shift} (reversed: -{norm_shift} ➔ +{rev_shift}). Recovered original text.",
             fg=Theme.CYAN_BRIGHT
         )
+        if hasattr(self.app, "state") and self.app.state:
+            self.app.state.record_experiment_run("caesar")
 
     def _caesar_clear(self):
         """Clears text fields and resets status."""
@@ -1747,7 +1858,7 @@ class ExperimentLabView(tk.Frame):
 
         ModernButton(btn_box, text="Calculate Output", icon="⚡",
                      bg_color=Theme.CYAN, text_color=Theme.BG_ROOT,
-                     command=self._calculate_neuron).pack(side="left", padx=(0, 10))
+                     command=self._on_calculate_neuron_clicked).pack(side="left", padx=(0, 10))
 
         ModernButton(btn_box, text="Reset Defaults", icon="↺",
                      bg_color=Theme.BG_INPUT, hover_color=Theme.BORDER_MUTED,
@@ -1855,6 +1966,12 @@ class ExperimentLabView(tk.Frame):
         )
         slider.pack(fill="x", pady=(2, 2))
 
+    def _on_calculate_neuron_clicked(self):
+        """Calculates neuron outputs and records execution in AppState."""
+        self._calculate_neuron()
+        if hasattr(self.app, "state") and self.app.state:
+            self.app.state.record_experiment_run("neural")
+
     def _load_neural_preset(self, x1, w1, x2, w2, bias):
         self.x1_var.set(x1)
         self.w1_var.set(w1)
@@ -1863,6 +1980,8 @@ class ExperimentLabView(tk.Frame):
         self.bias_var.set(bias)
         self._calculate_neuron()
         self.neural_status.config(text="Loaded preset parameters.", fg=Theme.CYAN)
+        if hasattr(self.app, "state") and self.app.state:
+            self.app.state.record_experiment_run("neural")
 
     def _reset_neural_defaults(self):
         self._load_neural_preset(0.80, 1.50, 0.60, -1.00, 0.20)
@@ -2323,6 +2442,10 @@ class ExperimentLabView(tk.Frame):
         # Render Bar Chart on Canvas
         self._draw_bar_chart(values, max_val, min_val)
 
+        # Record execution in centralized AppState
+        if hasattr(self.app, "state") and self.app.state:
+            self.app.state.record_experiment_run("dataviz")
+
     def _draw_bar_chart(self, values, max_val, min_val):
         """Renders responsive bar chart on Canvas with full positive and negative value support."""
         c = self.dataviz_canvas
@@ -2456,10 +2579,15 @@ class ResearchDetectiveView(tk.Frame):
         super().__init__(parent, bg=Theme.BG_ROOT)
         self.app = app
 
-        # In-memory investigation progress and scoring state
-        self.score = 0
-        self.completed_challenges = set()
-        self.hints_used = set()
+        # In-memory investigation progress and scoring state (synchronized with AppState)
+        if hasattr(self.app, "state") and self.app.state:
+            self.score = self.app.state.detective_score
+            self.completed_challenges = self.app.state.completed_challenges
+            self.hints_used = self.app.state.hints_used
+        else:
+            self.score = 0
+            self.completed_challenges = set()
+            self.hints_used = set()
         self.current_sub_view = "overview"
         self.sub_views = {}
         self.subnav_buttons = {}
@@ -2584,6 +2712,21 @@ class ResearchDetectiveView(tk.Frame):
             self.completed_challenges.add(challenge_id)
             self.score += total_award
             self._update_overview_metrics()
+
+            # Synchronize with centralized AppState
+            if hasattr(self.app, "state") and self.app.state:
+                self.app.state.detective_score = self.score
+                if used_hint:
+                    self.app.state.hints_used.add(challenge_id)
+                self.app.state.notifications.insert(0, {
+                    "id": f"notif_solve_{challenge_id}",
+                    "title": f"🔍 Case Dossier Cleared: {challenge_id}",
+                    "desc": f"Investigation confirmed. Awarded +{total_award} pts to researcher profile.",
+                    "timestamp": "Just now",
+                    "accent": "#06B6D4",
+                    "read": False
+                })
+                self.app.state.notify()
 
             bonus_txt = " (+50 No-Hint Diligence Bonus!)" if bonus_points > 0 else ""
             feedback_lbl.config(
@@ -4379,9 +4522,15 @@ class CurioLabApp:
         self.nav_buttons = {}
         self.active_nav_indicator = None
 
+        # Instantiate centralized in-memory AppState
+        self.state = AppState()
+
         # Build application shell
         self._build_sidebar()
         self._build_main_area()
+
+        # Subscribe header notification badge to AppState
+        self.state.subscribe(self._update_header_notif_badge)
 
         # Initialize pages dictionary
         self.pages = {}
@@ -4390,8 +4539,19 @@ class CurioLabApp:
         # Display default page (Discovery Hub)
         self.navigate_to("Discovery Hub")
 
-        # Global keyboard shortcuts
+        # Global keyboard shortcuts: Ctrl+F (or Cmd+F on Mac) for search
         self.root.bind("<Control-f>", lambda _: self.search_entry.focus_set())
+        self.root.bind("<Command-f>", lambda _: self.search_entry.focus_set())
+
+        # Page navigation shortcuts (Ctrl+1..8 and Cmd+1..8)
+        page_names = [
+            "Discovery Hub", "Experiment Lab", "Research Detective",
+            "Knowledge Library", "Research Galaxy", "Discovery Journal",
+            "Settings", "Help & About"
+        ]
+        for idx, p_name in enumerate(page_names, 1):
+            self.root.bind(f"<Control-Key-{idx}>", lambda _, name=p_name: self.navigate_to(name))
+            self.root.bind(f"<Command-Key-{idx}>", lambda _, name=p_name: self.navigate_to(name))
 
     def _center_window(self, width, height):
         """Centers window on primary display."""
@@ -4671,10 +4831,22 @@ class CurioLabApp:
         """Displays or closes floating notification center."""
         x = event.x_root - 180
         y = event.y_root + 20
-        NotificationPopup(self.root, x, y, on_clear_callback=self._clear_notifications)
+        NotificationPopup(self.root, x, y, on_clear_callback=self._clear_notifications, app_state=self.state)
 
     def _clear_notifications(self):
+        if hasattr(self, "state") and self.state:
+            self.state.clear_notifications()
         self.unread_badge.config(text=" 0 ", bg=Theme.TEXT_MUTED)
+
+    def _update_header_notif_badge(self):
+        """Updates the notification bell badge based on live unread count."""
+        if hasattr(self, "unread_badge") and hasattr(self, "state") and self.state:
+            m = self.state.get_metrics()
+            unread = m["unread_notifs"]
+            if unread > 0:
+                self.unread_badge.config(text=f" {unread} ", bg=Theme.ROSE)
+            else:
+                self.unread_badge.config(text=" 0 ", bg=Theme.TEXT_MUTED)
 
     def _build_user_profile(self, parent):
         """User avatar and credentials pill."""
@@ -4882,6 +5054,10 @@ class CurioLabApp:
 
         # Pack and display target page
         self.pages[page_name].pack(fill="both", expand=True)
+
+        # Refresh dashboard statistics when navigating to Discovery Hub
+        if page_name == "Discovery Hub" and hasattr(self.pages[page_name], "update_statistics_display"):
+            self.pages[page_name].update_statistics_display()
 
 
 # =============================================================================
