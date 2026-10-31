@@ -21,6 +21,7 @@ import datetime
 import sys
 
 from app_state import AppState
+from knowledge_library import KnowledgeLibraryView
 
 
 # =============================================================================
@@ -202,15 +203,23 @@ class StatCard(tk.Frame):
     def _on_enter(self, _):
         self.config(bg=Theme.BG_CARD_HOVER, highlightbackground=self.accent_color)
         for child in self.child_labels:
-            if child.cget("text") and "●" in child.cget("text"):
-                continue  # keep trend pill bg
+            if isinstance(child, tk.Label):
+                try:
+                    if child.cget("text") and "●" in child.cget("text"):
+                        continue  # keep trend pill bg
+                except Exception:
+                    pass
             child.config(bg=Theme.BG_CARD_HOVER)
 
     def _on_leave(self, _):
         self.config(bg=Theme.BG_CARD, highlightbackground=Theme.BORDER_SUBTLE)
         for child in self.child_labels:
-            if child.cget("text") and "●" in child.cget("text"):
-                continue
+            if isinstance(child, tk.Label):
+                try:
+                    if child.cget("text") and "●" in child.cget("text"):
+                        continue
+                except Exception:
+                    pass
             child.config(bg=Theme.BG_CARD)
 
 
@@ -4372,6 +4381,405 @@ class ResearchDetectiveView(tk.Frame):
 
 
 # =============================================================================
+# DISCOVERY JOURNAL DRAFT & CITATION REVIEW VIEW
+# =============================================================================
+
+class DiscoveryJournalDraftView(tk.Frame):
+    """
+    Discovery Journal view with active citation draft review,
+    laboratory note recording, and in-memory AppState log repository.
+    """
+    def __init__(self, parent, app):
+        super().__init__(parent, bg=Theme.BG_ROOT)
+        self.app = app
+
+        # Scrollable container
+        self.scroll_frame = ScrollableFrame(self, bg=Theme.BG_ROOT)
+        self.scroll_frame.pack(fill="both", expand=True)
+        self.content = self.scroll_frame.scrollable_content
+
+        # UI State variables
+        self.title_var = tk.StringVar()
+        self.domain_var = tk.StringVar(value="General Lab Observation")
+        self.status_var = tk.StringVar(value="Formulated")
+        self.tags_var = tk.StringVar(value="Citation, Demonstration")
+
+        # Build sections
+        self._build_hero(self.content)
+        self._build_draft_editor(self.content)
+        self._build_entries_repository(self.content)
+        self._build_planned_capabilities(self.content)
+
+        # Mousewheel
+        self.scroll_frame.bind_mousewheel(self.content)
+
+        # AppState subscription
+        if hasattr(self.app, "state") and self.app.state:
+            self.app.state.subscribe(self._on_app_state_changed)
+
+        # Initial render of entries
+        self._render_entries()
+
+    def _build_hero(self, parent):
+        hero = tk.Frame(parent, bg=Theme.BG_CARD_ELEVATED,
+                        highlightbackground=Theme.EMERALD,
+                        highlightthickness=1, padx=30, pady=24)
+        hero.pack(fill="x", padx=32, pady=(24, 18))
+
+        badge = tk.Label(hero, text="◈  DISCOVERY JOURNAL  •  RESEARCH LOGBOOK & CITATION REPOSITORY",
+                         font=("Segoe UI", 8, "bold"),
+                         bg=Theme.BG_INPUT, fg=Theme.EMERALD,
+                         padx=8, pady=3)
+        badge.pack(anchor="w")
+
+        top_row = tk.Frame(hero, bg=Theme.BG_CARD_ELEVATED)
+        top_row.pack(fill="x", pady=(10, 4))
+
+        i_lbl = tk.Label(top_row, text="📓", font=("Segoe UI", 26),
+                         bg=Theme.BG_CARD_ELEVATED, fg=Theme.EMERALD)
+        i_lbl.pack(side="left", padx=(0, 12))
+
+        t_lbl = tk.Label(top_row, text="Discovery Journal", font=("Segoe UI", 22, "bold"),
+                         bg=Theme.BG_CARD_ELEVATED, fg=Theme.TEXT_PRIMARY)
+        t_lbl.pack(side="left")
+
+        sub_lbl = tk.Label(hero, text="Personal Scientific Notes, Hypotheses & Educational Citations",
+                           font=("Segoe UI", 12),
+                           bg=Theme.BG_CARD_ELEVATED, fg=Theme.TEXT_SECONDARY)
+        sub_lbl.pack(anchor="w")
+
+        desc_lbl = tk.Label(hero,
+                            text="Document your intellectual journey. Record spontaneous hypotheses, "
+                                 "attach simulation parameters, cite educational monographs from the Knowledge Library, "
+                                 "and timestamp breakthrough moments.",
+                            font=("Segoe UI", 10),
+                            bg=Theme.BG_CARD_ELEVATED, fg=Theme.TEXT_MUTED,
+                            wraplength=850, justify="left")
+        desc_lbl.pack(anchor="w", pady=(10, 0))
+
+    def _build_draft_editor(self, parent):
+        editor_frame = tk.Frame(parent, bg=Theme.BG_CARD,
+                                highlightbackground=Theme.BORDER_MUTED,
+                                highlightthickness=1, padx=24, pady=20)
+        editor_frame.pack(fill="x", padx=32, pady=(0, 20))
+
+        # Title & Alert header
+        hdr_row = tk.Frame(editor_frame, bg=Theme.BG_CARD)
+        hdr_row.pack(fill="x", pady=(0, 12))
+
+        tk.Label(hdr_row, text="📝 Laboratory Note & Citation Draft Editor",
+                 font=("Segoe UI", 13, "bold"),
+                 bg=Theme.BG_CARD, fg=Theme.TEXT_PRIMARY).pack(side="left")
+
+        self.feedback_lbl = tk.Label(hdr_row, text="", font=("Segoe UI", 9, "bold"),
+                                     bg=Theme.BG_CARD, fg=Theme.EMERALD)
+        self.feedback_lbl.pack(side="right")
+
+        # Dynamic Citation Transfer Notification Banner
+        self.draft_banner = tk.Frame(editor_frame, bg=Theme.BG_INPUT,
+                                     highlightbackground=Theme.CYAN,
+                                     highlightthickness=1, padx=12, pady=8)
+        tk.Label(self.draft_banner, text="📋 Citation Draft Loaded from Knowledge Library",
+                 font=("Segoe UI", 9, "bold"), bg=Theme.BG_INPUT, fg=Theme.CYAN).pack(anchor="w")
+        tk.Label(self.draft_banner,
+                 text="A demonstration citation has been transferred. Review, edit details below, and save to register this entry into your Discovery Journal.",
+                 font=("Segoe UI", 8), bg=Theme.BG_INPUT, fg=Theme.TEXT_SECONDARY).pack(anchor="w")
+
+        # Form Grid
+        grid_frame = tk.Frame(editor_frame, bg=Theme.BG_CARD)
+        grid_frame.pack(fill="x", pady=(4, 10))
+        grid_frame.columnconfigure(1, weight=3)
+        grid_frame.columnconfigure(3, weight=1)
+
+        # Row 0: Title & Status
+        tk.Label(grid_frame, text="Log Title:", font=("Segoe UI", 9, "bold"),
+                 bg=Theme.BG_CARD, fg=Theme.TEXT_SECONDARY).grid(row=0, column=0, sticky="w", pady=6, padx=(0, 8))
+        self.title_entry = tk.Entry(grid_frame, textvariable=self.title_var,
+                                    bg=Theme.BG_INPUT, fg=Theme.TEXT_PRIMARY,
+                                    insertbackground=Theme.CYAN, font=("Segoe UI", 9),
+                                    highlightthickness=1, highlightbackground=Theme.BORDER_MUTED)
+        self.title_entry.grid(row=0, column=1, sticky="ew", pady=6, padx=(0, 16))
+
+        tk.Label(grid_frame, text="Status:", font=("Segoe UI", 9, "bold"),
+                 bg=Theme.BG_CARD, fg=Theme.TEXT_SECONDARY).grid(row=0, column=2, sticky="w", pady=6, padx=(0, 8))
+        self.status_cb = ttk.Combobox(grid_frame, textvariable=self.status_var,
+                                      values=["Formulated", "Testing", "Verified", "Refuted"],
+                                      state="readonly", width=14, font=("Segoe UI", 9))
+        self.status_cb.grid(row=0, column=3, sticky="ew", pady=6)
+
+        # Row 1: Domain & Tags
+        tk.Label(grid_frame, text="Domain:", font=("Segoe UI", 9, "bold"),
+                 bg=Theme.BG_CARD, fg=Theme.TEXT_SECONDARY).grid(row=1, column=0, sticky="w", pady=6, padx=(0, 8))
+        self.domain_entry = tk.Entry(grid_frame, textvariable=self.domain_var,
+                                     bg=Theme.BG_INPUT, fg=Theme.TEXT_PRIMARY,
+                                     insertbackground=Theme.CYAN, font=("Segoe UI", 9),
+                                     highlightthickness=1, highlightbackground=Theme.BORDER_MUTED)
+        self.domain_entry.grid(row=1, column=1, sticky="ew", pady=6, padx=(0, 16))
+
+        tk.Label(grid_frame, text="Tags:", font=("Segoe UI", 9, "bold"),
+                 bg=Theme.BG_CARD, fg=Theme.TEXT_SECONDARY).grid(row=1, column=2, sticky="w", pady=6, padx=(0, 8))
+        self.tags_entry = tk.Entry(grid_frame, textvariable=self.tags_var,
+                                   bg=Theme.BG_INPUT, fg=Theme.TEXT_PRIMARY,
+                                   insertbackground=Theme.CYAN, font=("Segoe UI", 9),
+                                   highlightthickness=1, highlightbackground=Theme.BORDER_MUTED)
+        self.tags_entry.grid(row=1, column=3, sticky="ew", pady=6)
+
+        # Content Integrity Disclaimer
+        disclaimer = tk.Label(
+            editor_frame,
+            text="ℹ️ Educational Demonstration Reference: Journal citations record demonstration metadata for local learning. They do not represent peer-reviewed publication indexes.",
+            font=("Segoe UI", 8),
+            bg=Theme.BG_CARD,
+            fg=Theme.TEXT_MUTED
+        )
+        disclaimer.pack(anchor="w", pady=(0, 8))
+
+        # Body Text Area
+        tk.Label(editor_frame, text="Log Body & Synthesis Observations:", font=("Segoe UI", 9, "bold"),
+                 bg=Theme.BG_CARD, fg=Theme.TEXT_SECONDARY).pack(anchor="w", pady=(0, 4))
+
+        self.body_text = tk.Text(
+            editor_frame,
+            height=8,
+            bg=Theme.BG_INPUT,
+            fg=Theme.TEXT_PRIMARY,
+            insertbackground=Theme.CYAN,
+            font=("Consolas", 9),
+            wrap="word",
+            highlightthickness=1,
+            highlightbackground=Theme.BORDER_MUTED,
+            relief="flat",
+            padx=10,
+            pady=8
+        )
+        self.body_text.pack(fill="x", pady=(0, 14))
+
+        # Action Buttons
+        btn_row = tk.Frame(editor_frame, bg=Theme.BG_CARD)
+        btn_row.pack(fill="x")
+
+        ModernButton(btn_row, text="Save Log Entry", icon="💾",
+                     bg_color=Theme.EMERALD,
+                     command=self._save_entry).pack(side="left", padx=(0, 10))
+
+        ModernButton(btn_row, text="Clear / Discard", icon="✕",
+                     bg_color=Theme.BG_INPUT, text_color=Theme.TEXT_SECONDARY,
+                     hover_color=Theme.BORDER_MUTED,
+                     command=self._clear_editor).pack(side="left", padx=(0, 10))
+
+        ModernButton(btn_row, text="New Blank Note", icon="✏️",
+                     bg_color=Theme.BG_INPUT, text_color=Theme.CYAN,
+                     hover_color=Theme.BORDER_MUTED,
+                     command=self._new_blank_note).pack(side="left")
+
+    def _build_entries_repository(self, parent):
+        self.repo_frame = tk.Frame(parent, bg=Theme.BG_ROOT)
+        self.repo_frame.pack(fill="x", padx=32, pady=(0, 20))
+
+        hdr_row = tk.Frame(self.repo_frame, bg=Theme.BG_ROOT)
+        hdr_row.pack(fill="x", pady=(0, 10))
+
+        tk.Label(hdr_row, text="📚 Cataloged Journal Entries (AppState In-Memory)",
+                 font=("Segoe UI", 13, "bold"),
+                 bg=Theme.BG_ROOT, fg=Theme.TEXT_PRIMARY).pack(side="left")
+
+        self.repo_count_lbl = tk.Label(hdr_row, text="", font=("Segoe UI", 8, "bold"),
+                                       bg=Theme.BG_ROOT, fg=Theme.TEXT_MUTED)
+        self.repo_count_lbl.pack(side="right")
+
+        self.entries_cards_box = tk.Frame(self.repo_frame, bg=Theme.BG_ROOT)
+        self.entries_cards_box.pack(fill="x")
+
+    def _build_planned_capabilities(self, parent):
+        caps_frame = tk.Frame(parent, bg=Theme.BG_CARD,
+                              highlightbackground=Theme.BORDER_SUBTLE,
+                              highlightthickness=1, padx=24, pady=20)
+        caps_frame.pack(fill="x", padx=32, pady=(0, 20))
+
+        tk.Label(caps_frame, text="🔬 Future Discovery Journal Roadmap & Capabilities",
+                 font=("Segoe UI", 13, "bold"),
+                 bg=Theme.BG_CARD, fg=Theme.TEXT_PRIMARY).pack(anchor="w", pady=(0, 12))
+
+        features = [
+            ("Rich Laboratory Notebook Editor", "Record observations with Markdown, LaTeX symbols, and parameter tags."),
+            ("Chronological Discovery Timeline", "Trace the evolution of your understanding across calendar months."),
+            ("Hypothesis Status Tracking", "Mark entries as 'Formulated', 'Testing', 'Verified', or 'Refuted'."),
+            ("Encrypted Local Export", "Export lab notes to standardized PDF, Markdown, and JSON archives.")
+        ]
+        for feat_title, feat_detail in features:
+            f_row = tk.Frame(caps_frame, bg=Theme.BG_CARD)
+            f_row.pack(fill="x", pady=5)
+
+            dot = tk.Label(f_row, text="◈", font=("Segoe UI", 10),
+                           bg=Theme.BG_CARD, fg=Theme.EMERALD)
+            dot.pack(side="left", anchor="n", padx=(0, 8))
+
+            info_col = tk.Frame(f_row, bg=Theme.BG_CARD)
+            info_col.pack(side="left", fill="x", expand=True)
+
+            tk.Label(info_col, text=feat_title, font=("Segoe UI", 10, "bold"),
+                     bg=Theme.BG_CARD, fg=Theme.TEXT_PRIMARY, anchor="w").pack(fill="x")
+            tk.Label(info_col, text=feat_detail, font=("Segoe UI", 9),
+                     bg=Theme.BG_CARD, fg=Theme.TEXT_SECONDARY, anchor="w").pack(fill="x")
+
+    def on_navigate_to(self):
+        """Called by CurioLabApp.navigate_to when switching to this page."""
+        if hasattr(self.app, "state") and self.app.state and self.app.state.pending_journal_draft:
+            draft = self.app.state.pending_journal_draft
+            self.title_var.set(draft.get("title", ""))
+            self.domain_var.set(draft.get("domain", "General Lab Observation"))
+            self.status_var.set(draft.get("status", "Formulated"))
+            self.tags_var.set(draft.get("tags", "Citation"))
+            self.body_text.delete("1.0", "end")
+            self.body_text.insert("1.0", draft.get("body", ""))
+            try:
+                self.draft_banner.pack(fill="x", pady=(0, 12), before=self.title_entry.master)
+            except Exception:
+                self.draft_banner.pack(fill="x", pady=(0, 12))
+            self.feedback_lbl.config(text="Citation draft ready for review!", fg=Theme.CYAN)
+        self._render_entries()
+
+    def _save_entry(self):
+        title = self.title_var.get().strip()
+        if not title:
+            messagebox.showwarning("Incomplete Log", "Please specify a title before saving this journal entry.")
+            return
+
+        domain = self.domain_var.get().strip()
+        status = self.status_var.get().strip()
+        tags = self.tags_var.get().strip()
+        body = self.body_text.get("1.0", "end").strip()
+
+        if hasattr(self.app, "state") and self.app.state:
+            new_entry = self.app.state.add_journal_entry(title, domain, status, tags, body)
+            self.app.state.pending_journal_draft = None
+            try:
+                self.draft_banner.pack_forget()
+            except Exception:
+                pass
+            self.feedback_lbl.config(text=f"✓ Entry saved successfully as {new_entry['id']}!", fg=Theme.EMERALD)
+            self._render_entries()
+
+    def _clear_editor(self):
+        self.title_var.set("")
+        self.domain_var.set("General Lab Observation")
+        self.status_var.set("Formulated")
+        self.tags_var.set("")
+        self.body_text.delete("1.0", "end")
+        try:
+            self.draft_banner.pack_forget()
+        except Exception:
+            pass
+        self.feedback_lbl.config(text="Editor cleared.", fg=Theme.TEXT_MUTED)
+        if hasattr(self.app, "state") and self.app.state:
+            self.app.state.pending_journal_draft = None
+
+    def _new_blank_note(self):
+        self._clear_editor()
+        self.title_var.set("Spontaneous Observation #")
+        self.title_entry.focus()
+
+    def _delete_entry(self, entry_id):
+        if messagebox.askyesno("Confirm Removal", f"Are you sure you want to remove journal entry '{entry_id}'?"):
+            if hasattr(self.app, "state") and self.app.state:
+                self.app.state.delete_journal_entry(entry_id)
+                self._render_entries()
+
+    def _render_entries(self):
+        for w in self.entries_cards_box.winfo_children():
+            w.destroy()
+
+        if not hasattr(self.app, "state") or not self.app.state:
+            return
+
+        entries = self.app.state.journal_entries
+        self.repo_count_lbl.config(text=f"Showing {len(entries)} recorded log{'s' if len(entries) != 1 else ''}")
+
+        if not entries:
+            empty_box = tk.Frame(self.entries_cards_box, bg=Theme.BG_CARD, padx=20, pady=24,
+                                 highlightbackground=Theme.BORDER_SUBTLE, highlightthickness=1)
+            empty_box.pack(fill="x", pady=8)
+            tk.Label(empty_box, text="No journal entries recorded in this session.",
+                     font=("Segoe UI", 9), bg=Theme.BG_CARD, fg=Theme.TEXT_MUTED).pack()
+            return
+
+        status_colors = {
+            "Formulated": Theme.CYAN,
+            "Testing": Theme.AMBER,
+            "Verified": Theme.EMERALD,
+            "Refuted": Theme.ROSE
+        }
+
+        for entry in entries:
+            card = tk.Frame(self.entries_cards_box, bg=Theme.BG_CARD,
+                            highlightbackground=Theme.BORDER_SUBTLE,
+                            highlightthickness=1, padx=16, pady=14)
+            card.pack(fill="x", pady=(0, 10))
+
+            # Header row
+            top_line = tk.Frame(card, bg=Theme.BG_CARD)
+            top_line.pack(fill="x")
+
+            status = entry.get("status", "Formulated")
+            st_color = status_colors.get(status, Theme.CYAN)
+
+            st_pill = tk.Label(top_line, text=f" {status.upper()} ",
+                               font=("Segoe UI", 7, "bold"),
+                               bg=Theme.BG_INPUT, fg=st_color, padx=4, pady=2)
+            st_pill.pack(side="left")
+
+            dom_lbl = tk.Label(top_line, text=f"•  {entry.get('domain', 'General')}",
+                               font=("Segoe UI", 8), bg=Theme.BG_CARD, fg=Theme.TEXT_MUTED)
+            dom_lbl.pack(side="left", padx=(8, 0))
+
+            time_lbl = tk.Label(top_line, text=f"📅 {entry.get('timestamp', '')}",
+                                font=("Segoe UI", 7), bg=Theme.BG_CARD, fg=Theme.TEXT_MUTED)
+            time_lbl.pack(side="right")
+
+            # Title & Delete action row
+            title_line = tk.Frame(card, bg=Theme.BG_CARD)
+            title_line.pack(fill="x", pady=(6, 4))
+
+            t_lbl = tk.Label(title_line, text=entry.get("title", "Untitled Log"),
+                             font=("Segoe UI", 11, "bold"),
+                             bg=Theme.BG_CARD, fg=Theme.TEXT_PRIMARY,
+                             anchor="w")
+            t_lbl.pack(side="left", fill="x", expand=True)
+
+            del_btn = tk.Label(title_line, text="🗑 Delete", font=("Segoe UI", 8),
+                               bg=Theme.BG_CARD, fg=Theme.TEXT_MUTED, cursor="hand2")
+            del_btn.pack(side="right")
+            del_btn.bind("<Button-1>", lambda _, eid=entry["id"]: self._delete_entry(eid))
+            del_btn.bind("<Enter>", lambda _, b=del_btn: b.config(fg=Theme.ROSE))
+            del_btn.bind("<Leave>", lambda _, b=del_btn: b.config(fg=Theme.TEXT_MUTED))
+
+            # Tags
+            if entry.get("tags"):
+                tags_row = tk.Frame(card, bg=Theme.BG_CARD)
+                tags_row.pack(fill="x", pady=(0, 6))
+                for tg in entry.get("tags").split(","):
+                    tg_clean = tg.strip()
+                    if tg_clean:
+                        tk.Label(tags_row, text=f"#{tg_clean}", font=("Segoe UI", 7),
+                                 bg=Theme.BG_INPUT, fg=Theme.TEXT_MUTED,
+                                 padx=4, pady=1).pack(side="left", padx=(0, 4))
+
+            # Body snippet / content
+            body_snippet = entry.get("body", "")
+            if len(body_snippet) > 280:
+                body_snippet = body_snippet[:277] + "..."
+            b_lbl = tk.Label(card, text=body_snippet, font=("Segoe UI", 9),
+                             bg=Theme.BG_CARD, fg=Theme.TEXT_SECONDARY,
+                             wraplength=800, justify="left", anchor="w")
+            b_lbl.pack(fill="x")
+
+        self.scroll_frame.bind_mousewheel(self.entries_cards_box)
+
+    def _on_app_state_changed(self):
+        self._render_entries()
+
+
+# =============================================================================
 # INTRODUCTORY PLACEHOLDER PAGES
 # =============================================================================
 
@@ -4896,28 +5304,7 @@ class CurioLabApp:
         self.pages["Research Detective"] = ResearchDetectiveView(self.content_area, self)
 
         # 4. Knowledge Library
-        self.pages["Knowledge Library"] = PlaceholderPageView(
-            self.content_area,
-            title="Knowledge Library",
-            subtitle="Curated repository of foundational papers, interactive models, and cross-domain texts.",
-            icon="📚",
-            accent_color=Theme.TEAL,
-            description="Browse categorized scientific monographs, interactive mathematical proofs, "
-                        "and interdisciplinary knowledge trees spanning theoretical physics, neuroscience, "
-                        "computer science, and bio-computation.",
-            features=[
-                ("Deep Taxonomy Filter", "Sort by domain, mathematical rigor, publication epoch, or research group."),
-                ("Interactive Equation Inspectors", "Hover over complex equations to break down tensor terms and units."),
-                ("Citation Graph Explorer", "Trace how seminal discoveries inspired contemporary technological breakthroughs."),
-                ("Personal Annotation Highlighting", "Attach personal lab thoughts directly onto digital paper margins.")
-            ],
-            sample_cards=[
-                {"title": "Topological Phases of Matter", "desc": "Comprehensive overview of Chern insulators and Majorana fermion edge modes.", "tag": "CONDENSED MATTER"},
-                {"title": "Information Theory & Entropy", "desc": "Claude Shannon's foundational proofs on channel capacity and entropy limits.", "tag": "INFORMATION THEORY"},
-                {"title": "The Synaptic Plasticity Compendium", "desc": "Long-term potentiation, spike-timing-dependent plasticity, and memory formation.", "tag": "NEUROSCIENCE"},
-            ],
-            app=self
-        )
+        self.pages["Knowledge Library"] = KnowledgeLibraryView(self.content_area, self)
 
         # 5. Research Galaxy
         self.pages["Research Galaxy"] = PlaceholderPageView(
@@ -4944,27 +5331,7 @@ class CurioLabApp:
         )
 
         # 6. Discovery Journal
-        self.pages["Discovery Journal"] = PlaceholderPageView(
-            self.content_area,
-            title="Discovery Journal",
-            subtitle="Your personal scientific logbook, hypothesis tracker, and laboratory record.",
-            icon="📓",
-            accent_color=Theme.EMERALD,
-            description="Document your intellectual journey. Record spontaneous hypotheses, "
-                        "attach simulation parameters, bookmark library papers, and timestamp breakthrough moments.",
-            features=[
-                ("Rich Laboratory Notebook Editor", "Record observations with Markdown, LaTeX symbols, and parameter tags."),
-                ("Chronological Discovery Timeline", "Trace the evolution of your understanding across calendar months."),
-                ("Hypothesis Status Tracking", "Mark entries as 'Formulated', 'Testing', 'Verified', or 'Refuted'."),
-                ("Encrypted Local Export", "Export lab notes to standardized PDF, Markdown, and JSON archives.")
-            ],
-            sample_cards=[
-                {"title": "Log #204: Quantum Phase Drift", "desc": "Recorded anomalous 0.04 rad phase shift during 15 mK resonator test run.", "tag": "LOG ENTRY"},
-                {"title": "Log #203: Randomness Invariance", "desc": "Verified entropy output of atmospheric noise generator against Dieharder suite.", "tag": "LOG ENTRY"},
-                {"title": "Log #202: Synaptic Simulation Setup", "desc": "Calibrated 10,000 Hodgkin-Huxley neuron array with Poisson spike inputs.", "tag": "LOG ENTRY"},
-            ],
-            app=self
-        )
+        self.pages["Discovery Journal"] = DiscoveryJournalDraftView(self.content_area, self)
 
         # 7. Settings
         self.pages["Settings"] = PlaceholderPageView(
@@ -5058,6 +5425,8 @@ class CurioLabApp:
         # Refresh dashboard statistics when navigating to Discovery Hub
         if page_name == "Discovery Hub" and hasattr(self.pages[page_name], "update_statistics_display"):
             self.pages[page_name].update_statistics_display()
+        elif page_name == "Discovery Journal" and hasattr(self.pages[page_name], "on_navigate_to"):
+            self.pages[page_name].on_navigate_to()
 
 
 # =============================================================================

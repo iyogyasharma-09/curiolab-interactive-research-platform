@@ -54,7 +54,10 @@ class AppState:
         # 7. UI Configuration
         self.current_theme = "Deep Obsidian"
 
-        # 8. Observer Callbacks
+        # 8. Pending Citation Draft (for Discovery Journal transfer)
+        self.pending_journal_draft = None
+
+        # 9. Observer Callbacks
         self._subscribers = []
 
     # -------------------------------------------------------------------------
@@ -215,6 +218,41 @@ class AppState:
             self.notify()
             return True
         return False
+
+    def generate_citation_draft(self, resource_id):
+        """Generates a standardized educational citation draft from demonstration metadata."""
+        for res in self.library_resources:
+            if res.get("id") == resource_id:
+                title = res.get("title", "Educational Resource")
+                curator = res.get("curator", "CurioLab Curriculum Staff")
+                year = res.get("year", 2026)
+                domain = res.get("module_domain", "Multidisciplinary")
+                level = res.get("curriculum_level", "Standard")
+                eq = res.get("key_equation", "N/A")
+                
+                draft_title = f"Citation & Notes: {title}"
+                draft_body = (
+                    f"### [CurioLab Educational Demonstration Reference]\n"
+                    f"- Record Identifier: {resource_id}\n"
+                    f"- Curriculum Title: {title}\n"
+                    f"- Curating Team: {curator}\n"
+                    f"- Curriculum Year: {year} ({level} level)\n"
+                    f"- Scientific Domain: {domain}\n"
+                    f"- Theoretical Equation: {eq}\n\n"
+                    f"**Demonstration Abstract:**\n"
+                    f"{res.get('summary', '')}\n\n"
+                    f"**Laboratory Synthesis & Student Notes:**\n"
+                    f"{res.get('study_notes', '')}"
+                )
+                return {
+                    "resource_id": resource_id,
+                    "title": draft_title,
+                    "domain": domain,
+                    "tags": f"Citation, {domain}, Educational",
+                    "status": "Formulated",
+                    "body": draft_body
+                }
+        return None
 
     def clear_notifications(self):
         """Marks all notifications as read."""

@@ -17,12 +17,16 @@ DEMO_LIBRARY_RESOURCES = [
     {
         "id": "demo_res_topological",
         "title": "Educational Guide: Topological Phases & Majorana Zero Modes",
-        "curator": "CurioLab Physics Curriculum Team",
-        "module_domain": "Condensed Matter Physics",
-        "record_type": "Educational Demonstration Monograph",
-        "curriculum_level": "Advanced Theoretical",
+        "curator": "CurioLab Quantum Physics Curriculum Staff",
+        "module_domain": "Quantum Physics",
+        "record_type": "CurioLab Educational Demonstration Monograph",
+        "curriculum_level": "Advanced",
+        "year": 2026,
+        "tags": ["Quantum", "Topology", "Majorana", "Superconductivity"],
         "summary": "An interactive tutorial explaining symmetry-protected topological order in one-dimensional superconducting wires and how non-abelian boundary states emerge.",
         "key_equation": "H = -μ ∑ c_i^† c_i - t ∑ (c_i^† c_{i+1} + h.c.) + Δ ∑ (c_i c_{i+1} + h.c.)",
+        "key_concepts": ["Chern Invariants", "Majorana Zero Modes", "Parity Qubits", "Topological Protection"],
+        "related_topics": ["Quantum Computing", "Cryogenic Physics", "Condensed Matter"],
         "study_notes": "Demonstrates topological protection against local thermal fluctuations in simulated quantum memory baselines.",
         "bookmarked": False,
         "demonstration_content": (
@@ -35,12 +39,16 @@ DEMO_LIBRARY_RESOURCES = [
     {
         "id": "demo_res_entropy",
         "title": "Educational Guide: Information Entropy & Landauer's Bound",
-        "curator": "CurioLab Information Theory Curriculum Team",
+        "curator": "CurioLab Information Theory Curriculum Staff",
         "module_domain": "Information Theory",
-        "record_type": "Educational Demonstration Monograph",
+        "record_type": "CurioLab Educational Demonstration Monograph",
         "curriculum_level": "Intermediate",
+        "year": 2025,
+        "tags": ["Information Theory", "Entropy", "Thermodynamics", "Bit-Erasure"],
         "summary": "An educational breakdown of Claude Shannon's channel capacity and Rolf Landauer's thermodynamic limit of logical bit erasure.",
         "key_equation": "C = B log₂(1 + S/N),   ΔQ ≥ k_B T ln(2)",
+        "key_concepts": ["Shannon Channel Capacity", "Landauer Bound", "Thermodynamic Erasure", "Entropy Scaling"],
+        "related_topics": ["Statistical Physics", "Cryptographic Entropy", "Energy Dissipation"],
         "study_notes": "Connects logical computational states with thermodynamic energy dissipation limits.",
         "bookmarked": True,
         "demonstration_content": (
@@ -51,31 +59,60 @@ DEMO_LIBRARY_RESOURCES = [
     },
     {
         "id": "demo_res_neural",
-        "title": "Educational Guide: Synaptic Weights & Non-Linear Activation",
-        "curator": "CurioLab Computational Neuroscience Team",
-        "module_domain": "Cognitive Neuroscience & AI",
-        "record_type": "Educational Demonstration Monograph",
+        "title": "Educational Guide: Synaptic Plasticity & Spiking Dynamics",
+        "curator": "CurioLab Neuroscience Curriculum Staff",
+        "module_domain": "Neuroscience",
+        "record_type": "CurioLab Educational Demonstration Monograph",
+        "curriculum_level": "Intermediate",
+        "year": 2025,
+        "tags": ["Neuroscience", "STDP", "Synaptic Plasticity", "Spikes"],
+        "summary": "Exploration of biological spike-timing-dependent plasticity (STDP) and how millisecond timing synchronizes recurrent neuronal circuits.",
+        "key_equation": "Δw = A_+ e^{-Δt / τ_+} (for Δt > 0),   -A_- e^{Δt / τ_-} (for Δt < 0)",
+        "key_concepts": ["Spike-Timing-Dependent Plasticity", "Dendritic Summation", "Homeostatic Plasticity", "Temporal Coincidence"],
+        "related_topics": ["Artificial Intelligence", "Cognitive Modeling", "Bio-Electronics"],
+        "study_notes": "Theoretical background for synaptic weight calibration in biological neural networks.",
+        "bookmarked": False,
+        "demonstration_content": (
+            "Biological synapses adapt connection strength dynamically based on the relative timing of "
+            "presynaptic and postsynaptic action potentials. When a presynaptic spike fires immediately prior "
+            "to a postsynaptic spike, long-term potentiation reinforces the link."
+        )
+    },
+    {
+        "id": "demo_res_perceptron",
+        "title": "Educational Guide: Perceptron Limits & Gradient Optimization",
+        "curator": "CurioLab Machine Intelligence Curriculum Staff",
+        "module_domain": "Artificial Intelligence",
+        "record_type": "CurioLab Educational Demonstration Monograph",
         "curriculum_level": "Introductory",
-        "summary": "A conceptual breakdown of single-unit artificial neuron dynamics, weighted linear summation, and smooth sigmoid thresholding.",
+        "year": 2026,
+        "tags": ["AI", "Perceptrons", "Sigmoid", "Backpropagation"],
+        "summary": "An intuitive tutorial on single-unit artificial neuron dynamics, linear separability constraints, and continuous sigmoid activation.",
         "key_equation": "z = w₁x₁ + w₂x₂ + b,   σ(z) = 1 / (1 + e^{-z})",
+        "key_concepts": ["Linear Hyperplanes", "Sigmoid Activation", "Gradient Descent", "Decision Boundaries"],
+        "related_topics": ["Neuroscience", "Optimization", "Pattern Classification"],
         "study_notes": "Theoretical companion to CurioLab's Single Artificial Neuron Playground.",
         "bookmarked": False,
         "demonstration_content": (
-            "Biological neurons integrate electrical potentials from multiple dendrites at the cell soma. "
-            "Artificial neural networks simplify this process into a dot product of inputs and synaptic weights, "
-            "followed by a non-linear activation function that decides whether the artificial neuron fires."
+            "A single artificial neuron computes a weighted sum followed by a non-linear squashing function. "
+            "While capable of solving linear boolean operations (AND, OR), single hyperplanes cannot partition "
+            "non-convex spaces (XOR), motivating deep multi-layer architectures."
         )
     },
     {
         "id": "demo_res_automata",
         "title": "Educational Guide: Cellular Automata & Emergent Complexity",
-        "curator": "CurioLab Complex Systems Team",
+        "curator": "CurioLab Complex Systems Curriculum Staff",
         "module_domain": "Complexity Science",
-        "record_type": "Educational Demonstration Monograph",
+        "record_type": "CurioLab Educational Demonstration Monograph",
         "curriculum_level": "Intermediate",
+        "year": 2025,
+        "tags": ["Complexity", "Cellular Automata", "Conway", "Self-Organization"],
         "summary": "An exploration of how simple deterministic grid-based transition rules produce unpredictable, self-organizing macroscopic structures.",
         "key_equation": "s_{t+1}(x,y) = f(s_t(x±1, y±1))",
-        "study_notes": "Demonstrates decentralized morphogenesis and pattern regeneration.",
+        "key_concepts": ["Deterministic Local Rules", "Glider Solitons", "Morphogenesis", "Turing Universality"],
+        "related_topics": ["Theoretical Computer Science", "Biological Patterning", "Nonlinear Dynamics"],
+        "study_notes": "Demonstrates decentralized morphogenesis and pattern regeneration without central coordinators.",
         "bookmarked": False,
         "demonstration_content": (
             "Cellular automata illustrate that complex global behavior does not require centralized control. "
@@ -84,14 +121,60 @@ DEMO_LIBRARY_RESOURCES = [
         )
     },
     {
+        "id": "demo_res_lattice_crypto",
+        "title": "Educational Guide: Post-Quantum Lattice Trapdoors & Shor Resistance",
+        "curator": "CurioLab Cybersecurity Curriculum Staff",
+        "module_domain": "Cybersecurity",
+        "record_type": "CurioLab Educational Demonstration Monograph",
+        "curriculum_level": "Advanced",
+        "year": 2026,
+        "tags": ["Cybersecurity", "Lattices", "Post-Quantum", "LWE"],
+        "summary": "An architectural guide to Learning With Errors (LWE) and high-dimensional lattice trapdoors designed to withstand quantum Fourier period-finding attacks.",
+        "key_equation": "b = As + e (mod q),   ||e||_∞ ≤ B",
+        "key_concepts": ["Learning With Errors", "Shortest Vector Problem", "Quantum Fourier Transform", "Trapdoor Lattices"],
+        "related_topics": ["Quantum Physics", "Information Theory", "Discrete Mathematics"],
+        "study_notes": "Essential curriculum resource on modern post-quantum cryptographic standards.",
+        "bookmarked": False,
+        "demonstration_content": (
+            "While Shor's quantum algorithm factors large integers in polynomial time by finding periodicities, "
+            "geometric lattice problems in high dimensions exhibit no known hidden subgroup structures, providing "
+            "a robust basis for post-quantum public-key exchange."
+        )
+    },
+    {
+        "id": "demo_res_computer_vision",
+        "title": "Educational Guide: Convolutional Feature Maps & Spatial Invariance",
+        "curator": "CurioLab Visual Computing Curriculum Staff",
+        "module_domain": "Computer Vision",
+        "record_type": "CurioLab Educational Demonstration Monograph",
+        "curriculum_level": "Intermediate",
+        "year": 2026,
+        "tags": ["Computer Vision", "Convolution", "Kernels", "Spatial Invariance"],
+        "summary": "A practical breakdown of discrete spatial 2D convolutions, edge detection filters (Sobel), and hierarchical visual feature abstraction.",
+        "key_equation": "(I * K)(x,y) = ∑_i ∑_j I(x-i, y-j) K(i,j)",
+        "key_concepts": ["Kernel Convolution", "Translation Equivariance", "Receptive Fields", "Spatial Pooling"],
+        "related_topics": ["Artificial Intelligence", "Signal Processing", "Neurobiology"],
+        "study_notes": "Explains how parameterized filters extract edge orientation and visual texture maps.",
+        "bookmarked": False,
+        "demonstration_content": (
+            "Visual processing relies on translation equivariance: an edge or contour is equally meaningful "
+            "regardless of its spatial position in the sensor frame. Sliding discrete convolution kernels computes "
+            "local gradient responses that form hierarchical representations in deep vision models."
+        )
+    },
+    {
         "id": "demo_res_telemetry",
         "title": "Educational Guide: Sensor Telemetry & Statistical Outlier Audits",
-        "curator": "CurioLab Empirical Methods Team",
+        "curator": "CurioLab Empirical Methods Curriculum Staff",
         "module_domain": "Empirical Data Analysis",
-        "record_type": "Educational Demonstration Monograph",
+        "record_type": "CurioLab Educational Demonstration Monograph",
         "curriculum_level": "Introductory",
+        "year": 2025,
+        "tags": ["Data Analysis", "Outliers", "Telemetry", "Standard Deviation"],
         "summary": "An empirical audit manual on detecting sensor desynchronization, temperature violations, and decimal entry typos in telemetry streams.",
         "key_equation": "z_{score} = (x - μ) / σ,   IQR = Q₃ - Q₁",
+        "key_concepts": ["Z-Score Normalization", "Interquartile Range", "Instrument Noise", "Physical Boundary Checks"],
+        "related_topics": ["Statistical Inference", "Instrument Engineering", "Quality Assurance"],
         "study_notes": "Theoretical companion to CurioLab Research Detective Dossier #02 (The Data Detective).",
         "bookmarked": False,
         "demonstration_content": (
@@ -101,20 +184,45 @@ DEMO_LIBRARY_RESOURCES = [
         )
     },
     {
-        "id": "demo_res_cryptography",
-        "title": "Educational Guide: Symmetric Shifts & Post-Quantum Lattices",
-        "curator": "CurioLab Cryptography Curriculum Team",
-        "module_domain": "Cryptographic Mathematics",
-        "record_type": "Educational Demonstration Monograph",
+        "id": "demo_res_coherence",
+        "title": "Educational Guide: Quantum Coherence & Cryogenic Thermal Shielding",
+        "curator": "CurioLab Quantum Physics Curriculum Staff",
+        "module_domain": "Quantum Physics",
+        "record_type": "CurioLab Educational Demonstration Monograph",
         "curriculum_level": "Advanced",
-        "summary": "A historical progression from Caesar substitution ciphers to modern lattice-based trapdoors resistant to quantum period-finding algorithms.",
-        "key_equation": "E_k(m) = (m + k) mod 26,   b = As + e (mod q)",
-        "study_notes": "Theoretical companion to CurioLab's Caesar Cipher Lab and Detective Dossier #01.",
+        "year": 2026,
+        "tags": ["Quantum", "Cryogenics", "Coherence", "Johnson-Nyquist"],
+        "summary": "A laboratory study guide detailing how dilution cryostats cooled to 15 mK suppress thermal phonon scattering and Johnson-Nyquist voltage noise.",
+        "key_equation": "S_v(f) = 4 k_B T R,   T_2^* = (1 / (2 T_1) + 1 / T_φ)^{-1}",
+        "key_concepts": ["Thermal Nyquist Noise", "Phonon Attenuation", "Phase Decoherence (T2)", "Superconducting Resonators"],
+        "related_topics": ["Cryogenic Engineering", "Quantum Computing", "Condensed Matter"],
+        "study_notes": "Explains why dilution refrigeration is required for high-coherence resonator tests.",
         "bookmarked": False,
         "demonstration_content": (
-            "Classical substitution ciphers are vulnerable to frequency analysis because letter statistics leak into "
-            "ciphertext. Modern cryptography relies on hard geometric lattice problems such as Learning With Errors (LWE), "
-            "which currently have no known polynomial-time quantum solution."
+            "Macroscopic quantum states are fragile against thermal fluctuations. Dilution refrigerators "
+            "circulating helium-3/helium-4 mixtures achieve sub-20 mK baselines where thermal photon energy "
+            "k_B T is negligible compared to quantum transition energies ℏω, preventing premature state collapse."
+        )
+    },
+    {
+        "id": "demo_res_classical_crypto",
+        "title": "Educational Guide: Classical Substitution & Frequency Cryptanalysis",
+        "curator": "CurioLab Cybersecurity Curriculum Staff",
+        "module_domain": "Cybersecurity",
+        "record_type": "CurioLab Educational Demonstration Monograph",
+        "curriculum_level": "Introductory",
+        "year": 2024,
+        "tags": ["Cybersecurity", "Caesar Cipher", "Cryptanalysis", "Frequency Analysis"],
+        "summary": "Historical analysis of monoalphabetic shift ciphers and how natural language unigram probability distributions permit trivial cryptanalytic recovery.",
+        "key_equation": "E_k(m) = (m + k) mod 26,   D_k(c) = (c - k) mod 26",
+        "key_concepts": ["Modular Shift Arithmetic", "Unigram Frequency Profiles", "Ciphertext Invariance", "ROT13 Transformation"],
+        "related_topics": ["Information Theory", "Discrete Mathematics", "Data Security"],
+        "study_notes": "Theoretical companion to CurioLab's Caesar Cipher Playground and Detective Room 1.",
+        "bookmarked": False,
+        "demonstration_content": (
+            "In a monoalphabetic Caesar cipher, each plaintext character is shifted by a constant integer k. "
+            "Because individual letter probabilities are unaltered by substitution, computing letter frequency "
+            "histograms breaks arbitrary Caesar ciphers almost instantaneously."
         )
     }
 ]
