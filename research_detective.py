@@ -911,91 +911,115 @@ class DetectiveMapView(tk.Frame):
             # Fallback local dict
             self.stages_data = {k: {"title": self.STAGE_METADATA[k]["title"], "status": "Not Started", "notes": "", "evidence": ""} for k in self.STAGE_KEYS}
 
+    def on_show(self):
+        """Refreshes state, updates progress, and redraws graph when view becomes visible."""
+        self._load_state_from_app()
+        self._load_stage_into_inspector(self.selected_stage_key)
+        self._update_progress_summary()
+        self.after(20, self._draw_pipeline_graph)
+
     def _build_ui(self):
         # Top Header Banner
         header = tk.Frame(self, bg=Theme.BG_CARD_ELEVATED,
                           highlightbackground=Theme.PURPLE,
-                          highlightthickness=1, padx=24, pady=16)
-        header.pack(fill="x", padx=24, pady=(16, 12))
+                          highlightthickness=1, padx=20, pady=12)
+        header.pack(fill="x", padx=20, pady=(12, 10))
 
+        # Tag row with badge and progress
         tag_row = tk.Frame(header, bg=Theme.BG_CARD_ELEVATED)
         tag_row.pack(fill="x")
 
-        tk.Label(tag_row, text="🗺️ INVESTIGATION BOARD • SCIENTIFIC METHOD WORKFLOW",
+        tk.Label(tag_row, text="🗺️ RESEARCH DETECTIVE • SCIENTIFIC METHOD MAP",
                  font=("Segoe UI", 8, "bold"),
                  bg=Theme.BG_INPUT, fg=Theme.PURPLE_LIGHT,
                  padx=8, pady=3).pack(side="left")
 
-        self.progress_lbl = tk.Label(tag_row, text="Progress: 2 of 7 Stages Complete (29%)",
+        self.progress_lbl = tk.Label(tag_row, text="Progress: 2 of 7 Stages Complete (29%) • 1 In Progress",
                                      font=("Segoe UI", 9, "bold"),
                                      bg=Theme.BG_CARD_ELEVATED, fg=Theme.CYAN_BRIGHT)
         self.progress_lbl.pack(side="right")
 
+        # Dossier title row
         title_row = tk.Frame(header, bg=Theme.BG_CARD_ELEVATED)
-        title_row.pack(fill="x", pady=(8, 2))
+        title_row.pack(fill="x", pady=(6, 2))
 
         self.inv_title_var = tk.StringVar(value="Cryogenic Sensor Anomaly Investigation")
         if hasattr(self.app, "state") and self.app.state and hasattr(self.app.state, "active_investigation"):
             self.inv_title_var.set(self.app.state.active_investigation.get("title", "Cryogenic Sensor Anomaly Investigation"))
 
-        tk.Label(title_row, text="Case Dossier:", font=("Segoe UI", 12, "bold"),
+        tk.Label(title_row, text="Case Dossier:", font=("Segoe UI", 11, "bold"),
                  bg=Theme.BG_CARD_ELEVATED, fg=Theme.TEXT_SECONDARY).pack(side="left", padx=(0, 8))
 
         self.title_entry = tk.Entry(title_row, textvariable=self.inv_title_var,
-                                    font=("Segoe UI", 14, "bold"),
+                                    font=("Segoe UI", 13, "bold"),
                                     bg=Theme.BG_INPUT, fg=Theme.TEXT_PRIMARY,
-                                    insertbackground=Theme.CYAN, relief="flat", width=42)
-        self.title_entry.pack(side="left", fill="x", expand=True, padx=(0, 16))
+                                    insertbackground=Theme.CYAN, relief="flat", width=38)
+        self.title_entry.pack(side="left", fill="x", expand=True, padx=(0, 14))
         self.title_entry.bind("<FocusOut>", lambda _: self._save_investigation_meta())
 
         # Transfer to Journal Button
         journal_btn = tk.Label(title_row, text=" 📓 Transfer to Journal ➔ ",
                                font=("Segoe UI", 9, "bold"),
                                bg=Theme.EMERALD, fg=Theme.BG_ROOT,
-                               padx=14, pady=6, cursor="hand2")
+                               padx=14, pady=5, cursor="hand2")
         journal_btn.pack(side="right")
         journal_btn.bind("<Button-1>", lambda _: self._transfer_to_discovery_journal())
 
-        # Subtitle
-        tk.Label(header,
-                 text="Navigate the connected nodes of scientific inquiry. Record hypotheses, log evidence references, "
-                      "and audit data across specialized analytical workspaces.",
-                 font=("Segoe UI", 9),
-                 bg=Theme.BG_CARD_ELEVATED, fg=Theme.TEXT_MUTED).pack(anchor="w", pady=(4, 0))
+        # 7-Stage Scientific Method Guide (Intuitive for first-time users)
+        guide_bar = tk.Frame(header, bg=Theme.BG_INPUT,
+                             highlightbackground=Theme.BORDER_MUTED, highlightthickness=1,
+                             padx=12, pady=6)
+        guide_bar.pack(fill="x", pady=(8, 0))
+
+        stages_flow_txt = "❓ 1. Question  ➔  📁 2. Evidence  ➔  🔍 3. Exploration  ➔  📊 4. Analysis  ➔  📝 5. Observations  ➔  💡 6. Hypothesis  ➔  🏁 7. Conclusion"
+        tk.Label(guide_bar, text=stages_flow_txt,
+                 font=("Segoe UI", 8, "bold"),
+                 bg=Theme.BG_INPUT, fg=Theme.CYAN_BRIGHT).pack(anchor="w")
+
+        tk.Label(guide_bar,
+                 text="Scientific Method Workflow: Click any stage node to inspect parameters, document notes, and access specialized analytical workspaces. Double-click any node to jump directly.",
+                 font=("Segoe UI", 8),
+                 bg=Theme.BG_INPUT, fg=Theme.TEXT_MUTED).pack(anchor="w", pady=(2, 0))
 
         # Main Split Body: Left Node Graph Canvas, Right Stage Inspector
         body = tk.Frame(self, bg=Theme.BG_ROOT)
-        body.pack(fill="both", expand=True, padx=24, pady=(0, 16))
-        body.columnconfigure(0, weight=3)
-        body.columnconfigure(1, weight=2)
+        body.pack(fill="both", expand=True, padx=20, pady=(0, 14))
+        body.columnconfigure(0, weight=1)
+        body.columnconfigure(1, weight=0, minsize=380)
         body.rowconfigure(0, weight=1)
 
-        # Left: Interactive Workflow Canvas
+        # Left: Interactive Workflow Canvas Box
         canvas_box = tk.Frame(body, bg=Theme.BG_CARD,
                               highlightbackground=Theme.BORDER_SUBTLE,
                               highlightthickness=1, padx=12, pady=12)
-        canvas_box.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
+        canvas_box.grid(row=0, column=0, sticky="nsew", padx=(0, 14))
 
         c_header = tk.Frame(canvas_box, bg=Theme.BG_CARD)
         c_header.pack(fill="x", pady=(0, 8))
         tk.Label(c_header, text="CONNECTED INVESTIGATION PIPELINE",
                  font=("Segoe UI", 9, "bold"),
                  bg=Theme.BG_CARD, fg=Theme.TEXT_SECONDARY).pack(side="left")
-        tk.Label(c_header, text="Click any node to inspect & edit",
+        tk.Label(c_header, text="Single-click to inspect • Double-click to launch workspace",
                  font=("Segoe UI", 8),
                  bg=Theme.BG_CARD, fg=Theme.TEXT_MUTED).pack(side="right")
 
         self.graph_canvas = tk.Canvas(canvas_box, bg=Theme.BG_INPUT,
                                       highlightthickness=0, borderwidth=0)
         self.graph_canvas.pack(fill="both", expand=True)
+
+        # Responsive canvas bindings
         self.graph_canvas.bind("<Configure>", lambda _: self._draw_pipeline_graph())
         self.graph_canvas.bind("<Button-1>", self._on_canvas_click)
+        self.graph_canvas.bind("<Double-Button-1>", self._on_canvas_double_click)
+        self.graph_canvas.bind("<Motion>", self._on_canvas_motion)
+        self.bind("<Map>", lambda _: self.after(30, self._draw_pipeline_graph))
 
         # Right: Stage Inspector & Notes Editor
         inspector_box = tk.Frame(body, bg=Theme.BG_CARD,
                                  highlightbackground=Theme.BORDER_SUBTLE,
-                                 highlightthickness=1, padx=20, pady=16)
+                                 highlightthickness=1, padx=18, pady=16, width=380)
         inspector_box.grid(row=0, column=1, sticky="nsew")
+        inspector_box.grid_propagate(False)
 
         self._build_stage_inspector(inspector_box)
 
@@ -1005,20 +1029,44 @@ class DetectiveMapView(tk.Frame):
 
     def _build_stage_inspector(self, parent):
         """Inspector panel for the currently selected stage."""
-        self.insp_icon_lbl = tk.Label(parent, text="❓", font=("Segoe UI", 22),
+        # Header Badge
+        top_row = tk.Frame(parent, bg=Theme.BG_CARD)
+        top_row.pack(fill="x", pady=(0, 6))
+
+        self.stage_badge_lbl = tk.Label(top_row, text="STAGE 1 OF 7 • SCIENTIFIC INQUIRY",
+                                        font=("Segoe UI", 8, "bold"),
+                                        bg=Theme.BG_INPUT, fg=Theme.CYAN,
+                                        padx=8, pady=2)
+        self.stage_badge_lbl.pack(side="left")
+
+        # Icon and Title
+        t_frame = tk.Frame(parent, bg=Theme.BG_CARD)
+        t_frame.pack(fill="x", pady=(0, 4))
+
+        self.insp_icon_lbl = tk.Label(t_frame, text="❓", font=("Segoe UI", 20),
                                       bg=Theme.BG_CARD, fg=Theme.CYAN)
-        self.insp_icon_lbl.pack(anchor="w")
+        self.insp_icon_lbl.pack(side="left", padx=(0, 8))
 
-        self.insp_title_lbl = tk.Label(parent, text="1. Research Question",
-                                       font=("Segoe UI", 14, "bold"),
+        self.insp_title_lbl = tk.Label(t_frame, text="1. Research Question",
+                                       font=("Segoe UI", 13, "bold"),
                                        bg=Theme.BG_CARD, fg=Theme.TEXT_PRIMARY)
-        self.insp_title_lbl.pack(anchor="w", pady=(2, 2))
+        self.insp_title_lbl.pack(side="left")
 
-        self.insp_desc_lbl = tk.Label(parent, text="Formulate a testable inquiry.",
-                                      font=("Segoe UI", 9),
-                                      bg=Theme.BG_CARD, fg=Theme.TEXT_SECONDARY,
-                                      wraplength=340, justify="left")
-        self.insp_desc_lbl.pack(anchor="w", pady=(0, 10))
+        # Description container
+        desc_card = tk.Frame(parent, bg=Theme.BG_INPUT,
+                             highlightbackground=Theme.BORDER_MUTED, highlightthickness=1,
+                             padx=10, pady=8)
+        desc_card.pack(fill="x", pady=(0, 10))
+
+        tk.Label(desc_card, text="Role in Scientific Method:",
+                 font=("Segoe UI", 8, "bold"),
+                 bg=Theme.BG_INPUT, fg=Theme.PURPLE_LIGHT).pack(anchor="w")
+
+        self.insp_desc_lbl = tk.Label(desc_card, text="Formulate a testable inquiry.",
+                                      font=("Segoe UI", 8),
+                                      bg=Theme.BG_INPUT, fg=Theme.TEXT_SECONDARY,
+                                      wraplength=320, justify="left")
+        self.insp_desc_lbl.pack(anchor="w", pady=(2, 0))
 
         # Status row
         st_row = tk.Frame(parent, bg=Theme.BG_CARD)
@@ -1035,16 +1083,16 @@ class DetectiveMapView(tk.Frame):
         self.status_combo.bind("<<ComboboxSelected>>", lambda _: self._on_status_change())
 
         # Jump to relevant workspace button
-        self.jump_btn = tk.Label(parent, text="🔍 Jump to Data Detective Workspace ➔",
+        self.jump_btn = tk.Label(parent, text="🔍 Open Data Detective Workspace ➔",
                                  font=("Segoe UI", 8, "bold"),
                                  bg=Theme.BG_INPUT, fg=Theme.CYAN_BRIGHT,
-                                 padx=10, pady=5, cursor="hand2",
+                                 padx=10, pady=6, cursor="hand2",
                                  highlightbackground=Theme.BORDER_MUTED, highlightthickness=1)
-        self.jump_btn.pack(fill="x", pady=(0, 12))
+        self.jump_btn.pack(fill="x", pady=(0, 10))
         self.jump_btn.bind("<Button-1>", lambda _: self._on_jump_clicked())
 
         # Stage Notes
-        tk.Label(parent, text="Stage Notes & Scientific Formulation:",
+        tk.Label(parent, text="Stage Notes & Reasoning:",
                  font=("Segoe UI", 9, "bold"),
                  bg=Theme.BG_CARD, fg=Theme.TEXT_PRIMARY).pack(anchor="w", pady=(0, 4))
 
@@ -1055,39 +1103,59 @@ class DetectiveMapView(tk.Frame):
         self.notes_text = tk.Text(n_box, font=("Segoe UI", 9),
                                   bg=Theme.BG_INPUT, fg=Theme.TEXT_PRIMARY,
                                   insertbackground=Theme.CYAN, relief="flat", wrap="word",
-                                  padx=8, pady=8, height=6)
+                                  padx=8, pady=6, height=5, width=36)
         self.notes_text.pack(fill="both", expand=True)
 
         # Evidence References
-        tk.Label(parent, text="Evidence References & Flagged Clues:",
+        tk.Label(parent, text="Evidence References & Telemetry:",
                  font=("Segoe UI", 9, "bold"),
                  bg=Theme.BG_CARD, fg=Theme.TEXT_PRIMARY).pack(anchor="w", pady=(0, 4))
 
         e_box = tk.Frame(parent, bg=Theme.BG_INPUT,
                          highlightbackground=Theme.BORDER_MUTED, highlightthickness=1)
-        e_box.pack(fill="x", pady=(0, 12))
+        e_box.pack(fill="x", pady=(0, 10))
 
         self.evidence_text = tk.Text(e_box, font=("Segoe UI", 9),
                                      bg=Theme.BG_INPUT, fg=Theme.TEXT_PRIMARY,
                                      insertbackground=Theme.CYAN, relief="flat", wrap="word",
-                                     padx=8, pady=6, height=3)
+                                     padx=8, pady=6, height=3, width=36)
         self.evidence_text.pack(fill="x")
 
-        # Save Button
-        save_btn = tk.Label(parent, text=" 💾 Save Stage Progress ",
+        # Action Buttons row
+        act_row = tk.Frame(parent, bg=Theme.BG_CARD)
+        act_row.pack(fill="x")
+
+        save_btn = tk.Label(act_row, text=" 💾 Save Stage Dossier ",
                             font=("Segoe UI", 9, "bold"),
                             bg=Theme.BLUE, fg=Theme.TEXT_ON_ACCENT,
-                            padx=14, pady=7, cursor="hand2")
-        save_btn.pack(fill="x")
+                            padx=14, pady=6, cursor="hand2")
+        save_btn.pack(side="left", fill="x", expand=True, padx=(0, 6))
         save_btn.bind("<Button-1>", lambda _: self._save_current_stage())
+
+        toggle_btn = tk.Label(act_row, text="✓ Complete",
+                              font=("Segoe UI", 9, "bold"),
+                              bg=Theme.BG_INPUT, fg=Theme.EMERALD,
+                              padx=10, pady=6, cursor="hand2",
+                              highlightbackground=Theme.BORDER_MUTED, highlightthickness=1)
+        toggle_btn.pack(side="right")
+        toggle_btn.bind("<Button-1>", lambda _: self._toggle_stage_completed())
 
         # Populate with selected stage
         self._load_stage_into_inspector(self.selected_stage_key)
+
+    def _toggle_stage_completed(self):
+        curr = self.status_var.get()
+        new_st = "Completed" if curr != "Completed" else "In Progress"
+        self.status_var.set(new_st)
+        self._save_current_stage()
 
     def _load_stage_into_inspector(self, stage_key):
         """Loads data for stage_key into the inspector controls."""
         meta = self.STAGE_METADATA.get(stage_key, {})
         stage_state = self.stages_data.get(stage_key, {})
+
+        stage_idx = (self.STAGE_KEYS.index(stage_key) + 1) if stage_key in self.STAGE_KEYS else 1
+        self.stage_badge_lbl.config(text=f"STAGE {stage_idx} OF 7 • SCIENTIFIC INQUIRY")
 
         self.insp_icon_lbl.config(text=meta.get("icon", "◈"))
         self.insp_title_lbl.config(text=meta.get("title", stage_key.title()))
@@ -1097,19 +1165,20 @@ class DetectiveMapView(tk.Frame):
 
         target = meta.get("target_view")
         if target == "data":
-            self.jump_btn.config(text="🔍 Open Data Detective Workspace ➔", state="normal")
-            self.jump_btn.pack(fill="x", pady=(0, 12))
+            self.jump_btn.config(text="🔍 Open Data Detective (Import & Outliers) ➔", state="normal")
+            self.jump_btn.pack(fill="x", pady=(0, 10))
         elif target == "stat":
-            self.jump_btn.config(text="⚠️ Open Statistical Trap Workspace ➔", state="normal")
-            self.jump_btn.pack(fill="x", pady=(0, 12))
+            self.jump_btn.config(text="⚠️ Open Statistical Trap (Simpson's & Confusion) ➔", state="normal")
+            self.jump_btn.pack(fill="x", pady=(0, 10))
         elif target == "pattern":
-            self.jump_btn.config(text="🧩 Open Pattern Discovery Workspace ➔", state="normal")
-            self.jump_btn.pack(fill="x", pady=(0, 12))
+            self.jump_btn.config(text="🧩 Open Pattern Discovery (Regression & Residuals) ➔", state="normal")
+            self.jump_btn.pack(fill="x", pady=(0, 10))
         elif target == "journal":
             self.jump_btn.config(text="📓 Transfer Investigation to Discovery Journal ➔", state="normal")
-            self.jump_btn.pack(fill="x", pady=(0, 12))
+            self.jump_btn.pack(fill="x", pady=(0, 10))
         else:
-            self.jump_btn.pack_forget()
+            self.jump_btn.config(text="🔍 Explore Datasets in Data Detective ➔", state="normal")
+            self.jump_btn.pack(fill="x", pady=(0, 10))
 
         self.notes_text.delete("1.0", "end")
         self.notes_text.insert("1.0", stage_state.get("notes", ""))
@@ -1148,6 +1217,9 @@ class DetectiveMapView(tk.Frame):
             self.suite.switch_to_subview(target)
         elif target == "journal":
             self._transfer_to_discovery_journal()
+        else:
+            # Default jump for stage 1 is Data Detective
+            self.suite.switch_to_subview("data")
 
     def _save_investigation_meta(self):
         if hasattr(self.app, "state") and self.app.state:
@@ -1161,123 +1233,258 @@ class DetectiveMapView(tk.Frame):
         in_prog = sum(1 for s in self.stages_data.values() if s.get("status") == "In Progress")
         pct = (completed / 7.0) * 100.0
         self.progress_lbl.config(
-            text=f"Progress: {completed} of 7 Completed ({pct:.0f}%) • {in_prog} In Progress"
+            text=f"Progress: {completed} of 7 Stages Complete ({pct:.0f}%) • {in_prog} In Progress"
         )
 
+    def _draw_rounded_card(self, x1, y1, x2, y2, r=12, **kwargs):
+        """Draws a smooth rounded card polygon on the canvas."""
+        points = [
+            x1 + r, y1,
+            x2 - r, y1,
+            x2, y1,
+            x2, y1 + r,
+            x2, y2 - r,
+            x2, y2,
+            x2 - r, y2,
+            x1 + r, y2,
+            x1, y2,
+            x1, y2 - r,
+            x1, y1 + r,
+            x1, y1
+        ]
+        return self.graph_canvas.create_polygon(points, **kwargs, smooth=True)
+
     def _draw_pipeline_graph(self):
-        """Renders the 7 stages as a connected scientific pipeline on the canvas."""
+        """
+        Renders the 7 stages as a connected scientific pipeline on the canvas.
+        Dynamically adapts to canvas dimensions, ensuring zero overlaps, zero clipping,
+        and crystal-clear visibility at all window sizes.
+        """
+        try:
+            if not self.winfo_exists() or not self.graph_canvas.winfo_exists():
+                return
+        except Exception:
+            return
+
         self.graph_canvas.delete("all")
         w = self.graph_canvas.winfo_width()
         h = self.graph_canvas.winfo_height()
         if w < 100 or h < 100:
+            try:
+                if self.winfo_exists():
+                    self.after(50, self._draw_pipeline_graph)
+            except Exception:
+                pass
             return
 
-        # Coordinates for 7 nodes laid out along an S-curve or vertical/horizontal tree
-        # 2 rows layout: Row 1 (stages 1 to 4 left-to-right), Row 2 (stages 5 to 7 right-to-left)
-        margin_x = 70
-        margin_y = 55
-        usable_w = w - (margin_x * 2)
-        usable_h = h - (margin_y * 2)
+        # 4 Columns in Row 1 (stages 1-4) and 4 Columns in Row 2 (stages 5-7 + Journal Action)
+        col_width = (w - 36) / 4.0
+        nw = min(68, max(42, int((col_width - 20) / 2.0)))
+        nh = min(42, max(28, int(h * 0.16)))
 
-        # 4 columns on top, 3 columns on bottom
-        row1_y = margin_y + usable_h * 0.28
-        row2_y = margin_y + usable_h * 0.72
+        margin_x = nw + 18
+        usable_w = w - (margin_x * 2)
+        col_step = usable_w / 3.0
+
+        margin_y = nh + 24
+        usable_h = h - (margin_y * 2)
+        row1_y = margin_y + usable_h * 0.22
+        row2_y = margin_y + usable_h * 0.78
+        mid_y = (row1_y + row2_y) / 2.0
 
         coords = {}
-        # Stage 0,1,2,3 along row 1
+        # Row 1: Stages 0, 1, 2, 3 (left to right)
         for i in range(4):
-            cx = margin_x + (usable_w * i / 3.0)
-            coords[self.STAGE_KEYS[i]] = (cx, row1_y)
+            k = self.STAGE_KEYS[i]
+            cx = margin_x + col_step * i
+            coords[k] = (cx, row1_y)
 
-        # Stage 4,5,6 along row 2 (spread out)
+        # Row 2: Stages 4, 5, 6 (left to right)
         for i, k in enumerate(["observations", "hypothesis", "conclusion"]):
-            # align backwards or aligned with columns 3, 2, 1
-            cx = margin_x + (usable_w * (3 - i) / 3.0)
+            cx = margin_x + col_step * i
             coords[k] = (cx, row2_y)
+
+        # Action Node: Journal Transfer at (Col 3, Row 2)
+        coords["journal"] = (margin_x + col_step * 3, row2_y)
 
         self.node_hitboxes = {}
 
-        # 1. Draw Connecting Lines / Arrows
-        for i in range(len(self.STAGE_KEYS) - 1):
+        # -------------------------------------------------------------
+        # 1. DRAW CONNECTING PIPELINE CONDUITS & ARROWS
+        # -------------------------------------------------------------
+        # Row 1 Connections: 0 -> 1 -> 2 -> 3
+        for i in range(3):
             k1 = self.STAGE_KEYS[i]
-            k2 = self.STAGE_KEYS[i+1]
+            k2 = self.STAGE_KEYS[i + 1]
             x1, y1 = coords[k1]
             x2, y2 = coords[k2]
-
             st1 = self.stages_data.get(k1, {}).get("status", "Not Started")
             st2 = self.stages_data.get(k2, {}).get("status", "Not Started")
 
-            line_color = Theme.BORDER_MUTED
-            if st1 == "Completed":
-                line_color = Theme.EMERALD if st2 == "Completed" else Theme.CYAN
-            elif st1 == "In Progress":
-                line_color = Theme.AMBER
+            color = Theme.EMERALD if st1 == "Completed" else (Theme.CYAN if st1 == "In Progress" else Theme.BORDER_MUTED)
+            # Background glow conduit
+            self.graph_canvas.create_line(x1 + nw, y1, x2 - nw, y2, fill="#0F172A", width=6)
+            # Core line with arrow
+            self.graph_canvas.create_line(x1 + nw, y1, x2 - nw, y2, fill=color, width=3,
+                                          arrow="last", arrowshape=(10, 12, 4))
 
-            if i == 3:
-                # Turn from Row 1 end to Row 2 start
-                mid_x = x1 + 25
-                self.graph_canvas.create_line(x1, y1, mid_x, y1, mid_x, y2, x2, y2,
-                                              fill=line_color, width=3, smooth=True)
-            else:
-                self.graph_canvas.create_line(x1, y1, x2, y2, fill=line_color, width=3, arrow="last", arrowshape=(10, 12, 5))
+        # Inter-Row Stepped Conduit: From Analysis (Col 3, Row 1) to Observations (Col 0, Row 2)
+        x_ana, y_ana = coords["analysis"]
+        x_obs, y_obs = coords["observations"]
+        st_ana = self.stages_data.get("analysis", {}).get("status", "Not Started")
+        turn_color = Theme.EMERALD if st_ana == "Completed" else (Theme.CYAN if st_ana == "In Progress" else Theme.BORDER_MUTED)
 
-        # 2. Draw Nodes
-        for k in self.STAGE_KEYS:
+        # Conduit path points: bottom of Analysis -> down to mid_y -> across to x_obs -> down into Observations
+        conduit_pts = [
+            x_ana, y_ana + nh,
+            x_ana, mid_y,
+            x_obs, mid_y,
+            x_obs, y_obs - nh
+        ]
+        self.graph_canvas.create_line(conduit_pts, fill="#0F172A", width=6)
+        self.graph_canvas.create_line(conduit_pts, fill=turn_color, width=3,
+                                      arrow="last", arrowshape=(10, 12, 4))
+
+        # Conduit label in the middle channel
+        mid_label_x = (x_ana + x_obs) / 2.0
+        self.graph_canvas.create_rectangle(mid_label_x - 70, mid_y - 9, mid_label_x + 70, mid_y + 9,
+                                           fill=Theme.BG_INPUT, outline=turn_color, width=1)
+        self.graph_canvas.create_text(mid_label_x, mid_y, text="AUDITED FINDINGS ➔",
+                                      font=("Segoe UI", 7, "bold"), fill=turn_color)
+
+        # Row 2 Connections: 4 -> 5 -> 6 -> journal
+        row2_chain = ["observations", "hypothesis", "conclusion", "journal"]
+        for i in range(len(row2_chain) - 1):
+            k1 = row2_chain[i]
+            k2 = row2_chain[i + 1]
+            x1, y1 = coords[k1]
+            x2, y2 = coords[k2]
+            st1 = self.stages_data.get(k1, {}).get("status", "Not Started")
+            color = Theme.EMERALD if st1 == "Completed" else (Theme.CYAN if st1 == "In Progress" else Theme.BORDER_MUTED)
+
+            self.graph_canvas.create_line(x1 + nw, y1, x2 - nw, y2, fill="#0F172A", width=6)
+            self.graph_canvas.create_line(x1 + nw, y1, x2 - nw, y2, fill=color, width=3,
+                                          arrow="last", arrowshape=(10, 12, 4))
+
+        # -------------------------------------------------------------
+        # 2. DRAW STAGE NODES (7 STAGES)
+        # -------------------------------------------------------------
+        for idx, k in enumerate(self.STAGE_KEYS):
             cx, cy = coords[k]
             meta = self.STAGE_METADATA[k]
             stage_info = self.stages_data.get(k, {})
             status = stage_info.get("status", "Not Started")
             is_selected = (k == self.selected_stage_key)
 
-            # Color scheme based on status
             if status == "Completed":
                 badge_bg = "#0B2E1E"
                 accent_col = Theme.EMERALD
                 status_icon = "✓"
+                status_desc = "Completed"
             elif status == "In Progress":
-                badge_bg = "#1A2E3B"
-                accent_col = Theme.CYAN
+                badge_bg = "#0F293A"
+                accent_col = Theme.CYAN_BRIGHT
                 status_icon = "⚡"
+                status_desc = "In Progress"
             else:
-                badge_bg = Theme.BG_CARD
-                accent_col = Theme.TEXT_MUTED
+                badge_bg = "#182234"
+                accent_col = Theme.BORDER_MUTED
                 status_icon = "○"
+                status_desc = "Pending"
 
-            nw = 65
-            nh = 42
-
-            # Highlight ring if selected
+            # Selection glow halo
             if is_selected:
-                self.graph_canvas.create_oval(cx - nw - 4, cy - nh - 4, cx + nw + 4, cy + nh + 4,
-                                              outline=Theme.CYAN_BRIGHT, width=2)
+                self._draw_rounded_card(cx - nw - 4, cy - nh - 4, cx + nw + 4, cy + nh + 4,
+                                        r=14, fill="", outline=Theme.CYAN, width=3)
 
-            # Node card background
-            card_id = self.graph_canvas.create_oval(cx - nw, cy - nh, cx + nw, cy + nh,
-                                                    fill=badge_bg, outline=accent_col, width=2)
+            # Node Card
+            self._draw_rounded_card(cx - nw, cy - nh, cx + nw, cy + nh,
+                                    r=12, fill=badge_bg, outline=accent_col if not is_selected else Theme.CYAN_BRIGHT,
+                                    width=2)
 
-            # Text inside node
-            icon_str = f"{meta['icon']} {status_icon}"
-            self.graph_canvas.create_text(cx, cy - 12, text=icon_str,
-                                          font=("Segoe UI", 12, "bold"), fill=accent_col)
+            # Stage Number Pill
+            pill_text = f"STAGE {idx + 1}"
+            self.graph_canvas.create_text(cx, cy - 22, text=pill_text,
+                                          font=("Segoe UI", 7, "bold"), fill=accent_col)
 
-            title_clean = meta["title"].split(". ")[-1]
-            self.graph_canvas.create_text(cx, cy + 8, text=title_clean,
+            # Icon & Title
+            icon_str = f"{meta['icon']}  {meta['title'].split('. ')[-1]}"
+            self.graph_canvas.create_text(cx, cy - 6, text=icon_str,
                                           font=("Segoe UI", 8, "bold"), fill=Theme.TEXT_PRIMARY)
 
-            self.graph_canvas.create_text(cx, cy + 22, text=status,
-                                          font=("Segoe UI", 7), fill=accent_col)
+            # Short Action / Subtitle
+            short_hint = meta.get("short_desc", "").split("&")[0].strip()
+            if len(short_hint) > 22:
+                short_hint = short_hint[:20] + "..."
+            self.graph_canvas.create_text(cx, cy + 9, text=short_hint,
+                                          font=("Segoe UI", 7), fill=Theme.TEXT_MUTED)
+
+            # Status Badge Footer
+            st_text = f"{status_icon} {status_desc}"
+            self.graph_canvas.create_text(cx, cy + 24, text=st_text,
+                                          font=("Segoe UI", 7, "bold"), fill=accent_col)
 
             self.node_hitboxes[k] = (cx - nw, cy - nh, cx + nw, cy + nh)
+
+        # -------------------------------------------------------------
+        # 3. DRAW ACTION NODE: DISCOVERY JOURNAL TRANSFER (COL 3, ROW 2)
+        # -------------------------------------------------------------
+        jx, jy = coords["journal"]
+        j_sel = (self.selected_stage_key == "conclusion")
+        if j_sel:
+            self._draw_rounded_card(jx - nw - 4, jy - nh - 4, jx + nw + 4, jy + nh + 4,
+                                    r=14, fill="", outline=Theme.EMERALD, width=3)
+
+        self._draw_rounded_card(jx - nw, jy - nh, jx + nw, jy + nh,
+                                r=12, fill="#064E3B", outline=Theme.EMERALD, width=2)
+
+        self.graph_canvas.create_text(jx, jy - 22, text="PUBLICATION",
+                                      font=("Segoe UI", 7, "bold"), fill=Theme.EMERALD)
+        self.graph_canvas.create_text(jx, jy - 6, text="📓 Stage Dossier",
+                                      font=("Segoe UI", 8, "bold"), fill=Theme.TEXT_PRIMARY)
+        self.graph_canvas.create_text(jx, jy + 9, text="Discovery Journal",
+                                      font=("Segoe UI", 7), fill=Theme.EMERALD)
+        self.graph_canvas.create_text(jx, jy + 24, text="➔ Transfer Draft",
+                                      font=("Segoe UI", 7, "bold"), fill=Theme.TEXT_ON_ACCENT)
+
+        self.node_hitboxes["journal"] = (jx - nw, jy - nh, jx + nw, jy + nh)
 
     def _on_canvas_click(self, event):
         x = event.x
         y = event.y
         for k, (x1, y1, x2, y2) in self.node_hitboxes.items():
             if x1 <= x <= x2 and y1 <= y <= y2:
-                self.selected_stage_key = k
-                self._load_stage_into_inspector(k)
-                self._draw_pipeline_graph()
+                if k == "journal":
+                    self._transfer_to_discovery_journal()
+                else:
+                    self.selected_stage_key = k
+                    self._load_stage_into_inspector(k)
+                    self._draw_pipeline_graph()
                 break
+
+    def _on_canvas_double_click(self, event):
+        x = event.x
+        y = event.y
+        for k, (x1, y1, x2, y2) in self.node_hitboxes.items():
+            if x1 <= x <= x2 and y1 <= y <= y2:
+                if k in ["evidence", "exploration"]:
+                    self.suite.switch_to_subview("data")
+                elif k == "analysis":
+                    self.suite.switch_to_subview("stat")
+                elif k in ["observations", "hypothesis"]:
+                    self.suite.switch_to_subview("pattern")
+                elif k in ["conclusion", "journal"]:
+                    self._transfer_to_discovery_journal()
+                break
+
+    def _on_canvas_motion(self, event):
+        x = event.x
+        y = event.y
+        for (x1, y1, x2, y2) in self.node_hitboxes.values():
+            if x1 <= x <= x2 and y1 <= y <= y2:
+                self.graph_canvas.config(cursor="hand2")
+                return
+        self.graph_canvas.config(cursor="")
 
     def _transfer_to_discovery_journal(self):
         """Compiles the full investigation dossier into a Discovery Journal draft and navigates there."""
@@ -3169,7 +3376,6 @@ class ResearchDetectiveView(tk.Frame):
         if key not in self.sub_views:
             return
 
-        prev = self.current_sub_view
         self.current_sub_view = key
 
         # Update styling
@@ -3181,12 +3387,27 @@ class ResearchDetectiveView(tk.Frame):
                 item["frame"].config(bg=Theme.BG_INPUT, highlightbackground=Theme.BORDER_MUTED)
                 item["label"].config(bg=Theme.BG_INPUT, fg=Theme.TEXT_SECONDARY)
 
-        self.sub_views[key].pack(fill="both", expand=True)
-        if prev and prev != key and prev in self.sub_views:
-            self.sub_views[prev].pack_forget()
-        for k, v in self.sub_views.items():
-            if k != key and k != prev:
+        target = self.sub_views[key]
+        target.pack(fill="both", expand=True)
+
+        # Safely un-pack other views using unique widget identity to avoid alias collisions
+        for v in set(self.sub_views.values()):
+            if v is not target:
                 v.pack_forget()
+
+        # Trigger on_show / redraw on active subview
+        if hasattr(target, "on_show"):
+            target.on_show()
+        elif hasattr(target, "_draw_pipeline_graph"):
+            target._draw_pipeline_graph()
+
+    def on_navigate_to(self):
+        """Called by CurioLabApp whenever user navigates into Research Detective."""
+        target_key = self.current_sub_view if self.current_sub_view in self.sub_views else "overview"
+        self.switch_to_subview(target_key)
+        target = self.sub_views.get(target_key)
+        if target and hasattr(target, "on_show"):
+            target.on_show()
 
     # Legacy method compatibility
     def switch_to_challenge(self, key):

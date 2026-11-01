@@ -500,5 +500,139 @@ class TestCurioLabAppRegression(unittest.TestCase):
             self.assertEqual(self.app.current_page_name, page)
 
 
+class TestDetectiveMapViewVisibilityAndInteractivity(unittest.TestCase):
+    """
+    Stage 6.1 Verification: Verifies Detective Map visibility, mounting, screen space,
+    responsive non-overlapping layout of all seven stages, inspector synchronization,
+    and bi-directional workspace navigation.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.root = tk.Tk()
+        cls.root.geometry("1400x850")
+        cls.app = CurioLabApp(cls.root)
+        cls.root.update()
+
+    @classmethod
+    def tearDownClass(cls):
+        try:
+            cls.root.destroy()
+        except Exception:
+            pass
+
+    def setUp(self):
+        self.app.navigate_to("Research Detective")
+        self.root.update()
+        self.rd_view = self.app.pages["Research Detective"]
+        self.map_view = self.rd_view.sub_views["overview"]
+
+    def test_detective_map_immediately_visible(self):
+        """1. Detective Map is primary, immediately visible interface on opening Research Detective."""
+        self.assertEqual(self.rd_view.current_sub_view, "overview")
+        self.assertTrue(self.rd_view.winfo_ismapped())
+        self.assertTrue(self.map_view.winfo_ismapped())
+        self.assertTrue(self.map_view.graph_canvas.winfo_ismapped())
+
+        # Sufficient screen space allocation
+        canvas_w = self.map_view.graph_canvas.winfo_width()
+        canvas_h = self.map_view.graph_canvas.winfo_height()
+        self.assertTrue(canvas_w >= 500, f"Canvas width {canvas_w} should be >= 500")
+        self.assertTrue(canvas_h >= 350, f"Canvas height {canvas_h} should be >= 350")
+        self.assertTrue(len(self.map_view.graph_canvas.find_all()) >= 30)
+
+    def test_all_seven_stages_rendered_without_overlap(self):
+        """2 & 7. All seven stages displayed with connecting conduits and zero overlaps."""
+        self.map_view._draw_pipeline_graph()
+        self.root.update()
+
+        hitboxes = self.map_view.node_hitboxes
+        for k in DetectiveMapView.STAGE_KEYS:
+            self.assertIn(k, hitboxes, f"Stage key '{k}' must be present in canvas hitboxes")
+
+        canvas_w = self.map_view.graph_canvas.winfo_width()
+        canvas_h = self.map_view.graph_canvas.winfo_height()
+
+        # Check all hitboxes are within canvas boundaries
+        for k, (x1, y1, x2, y2) in hitboxes.items():
+            self.assertTrue(x1 >= 0, f"Node {k} left {x1} out of bounds (< 0)")
+            self.assertTrue(x2 <= canvas_w, f"Node {k} right {x2} out of bounds (> {canvas_w})")
+            self.assertTrue(y1 >= 0, f"Node {k} top {y1} out of bounds (< 0)")
+            self.assertTrue(y2 <= canvas_h, f"Node {k} bottom {y2} out of bounds (> {canvas_h})")
+
+        # Verify zero overlap between any pair of nodes
+        all_keys = list(hitboxes.keys())
+        for i in range(len(all_keys)):
+            for j in range(i + 1, len(all_keys)):
+                k1, k2 = all_keys[i], all_keys[j]
+                b1, b2 = hitboxes[k1], hitboxes[k2]
+                ox = max(0, min(b1[2], b2[2]) - max(b1[0], b2[0]))
+                oy = max(0, min(b1[3], b2[3]) - max(b1[1], b2[1]))
+                self.assertFalse(ox > 0 and oy > 0, f"Overlap detected between {k1} and {k2}: ox={ox}, oy={oy}")
+
+    def test_inspector_updates_on_node_click(self):
+        """5. Clicking a node updates inspector with description, status, notes, and evidence."""
+        class EventMock:
+            def __init__(self, x, y):
+                self.x = x
+                self.y = y
+
+        # Click Analysis stage
+        b_ana = self.map_view.node_hitboxes["analysis"]
+        cx_ana = int((b_ana[0] + b_ana[2]) / 2)
+        cy_ana = int((b_ana[1] + b_ana[3]) / 2)
+        self.map_view._on_canvas_click(EventMock(cx_ana, cy_ana))
+
+        self.assertEqual(self.map_view.selected_stage_key, "analysis")
+        self.assertIn("Analysis", self.map_view.insp_title_lbl.cget("text"))
+        self.assertIn("Statistical Trap", self.map_view.jump_btn.cget("text"))
+
+        # Click Exploration stage
+        b_exp = self.map_view.node_hitboxes["exploration"]
+        cx_exp = int((b_exp[0] + b_exp[2]) / 2)
+        cy_exp = int((b_exp[1] + b_exp[3]) / 2)
+        self.map_view._on_canvas_click(EventMock(cx_exp, cy_exp))
+
+        self.assertEqual(self.map_view.selected_stage_key, "exploration")
+        self.assertIn("Exploration", self.map_view.insp_title_lbl.cget("text"))
+        self.assertIn("Data Detective", self.map_view.jump_btn.cget("text"))
+
+    def test_workspace_navigation(self):
+        """6. Working navigation from relevant stages into Data Detective, Statistical Trap and Pattern Mystery."""
+        class EventMock:
+            def __init__(self, x, y):
+                self.x = x
+                self.y = y
+
+        # 1. Evidence -> Data Detective via double click
+        b_ev = self.map_view.node_hitboxes["evidence"]
+        self.map_view._on_canvas_double_click(EventMock(int((b_ev[0] + b_ev[2]) / 2), int((b_ev[1] + b_ev[3]) / 2)))
+        self.root.update()
+        self.assertEqual(self.rd_view.current_sub_view, "data")
+        self.assertTrue(self.rd_view.sub_views["data"].winfo_ismapped())
+
+        # 2. Return to map and test Analysis -> Statistical Trap via jump button
+        self.rd_view.switch_to_subview("overview")
+        self.root.update()
+        self.map_view.selected_stage_key = "analysis"
+        self.map_view._on_jump_clicked()
+        self.root.update()
+        self.assertEqual(self.rd_view.current_sub_view, "stat")
+        self.assertTrue(self.rd_view.sub_views["stat"].winfo_ismapped())
+
+        # 3. Return to map and test Observations -> Pattern Mystery via double click
+        self.rd_view.switch_to_subview("overview")
+        self.root.update()
+        b_obs = self.map_view.node_hitboxes["observations"]
+        self.map_view._on_canvas_double_click(EventMock(int((b_obs[0] + b_obs[2]) / 2), int((b_obs[1] + b_obs[3]) / 2)))
+        self.root.update()
+        self.assertEqual(self.rd_view.current_sub_view, "pattern")
+        self.assertTrue(self.rd_view.sub_views["pattern"].winfo_ismapped())
+
+        # Reset back to overview
+        self.rd_view.switch_to_subview("overview")
+        self.root.update()
+
+
 if __name__ == "__main__":
     unittest.main()
