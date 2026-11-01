@@ -954,13 +954,24 @@ class DiscoveryJournalView(tk.Frame):
         elif source_type == "research_detective":
             b_title = "🔍 Research Detective Investigation Dossier Staged"
             b_desc = "Transferred empirical investigation findings, anomalies, and conclusions. Review and refine your journal entry."
+        elif source_type == "experiment_lab":
+            b_title = "🧪 Experiment Lab Research Dossier Staged"
+            b_desc = "Transferred custom experiment mathematical model, execution telemetry, and scientific discussion. Review and adapt into discovery journal."
         else:
             b_title = "Staged Journal Draft"
             b_desc = "Review and edit research notes before saving."
 
         self.form_title_var.set(draft.get("title", ""))
         self.form_domain_var.set(draft.get("domain", "General"))
-        self.form_type_var.set(draft.get("entry_type", "Finding" if source_type == "research_detective" else ("Literature Note" if source_type == "library_citation" else "Hypothesis")))
+        entry_t = draft.get("entry_type")
+        if not entry_t:
+            if source_type in ["research_detective", "experiment_lab"]:
+                entry_t = "Finding"
+            elif source_type == "library_citation":
+                entry_t = "Literature Note"
+            else:
+                entry_t = "Hypothesis"
+        self.form_type_var.set(entry_t)
         self.form_status_var.set(draft.get("status", "Formulated"))
         self.form_tags_var.set(draft.get("tags", "Draft"))
 
