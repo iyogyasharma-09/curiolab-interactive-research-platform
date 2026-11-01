@@ -1,0 +1,18 @@
+# CurioLab — Dependencies Specification
+# =====================================
+# CurioLab is intentionally engineered with ZERO external third-party Python packages.
+# The entire platform operates strictly using Python's standard library and Tkinter.
+#
+# Requirements:
+# - Python 3.10+ (tested on Python 3.10, 3.11, 3.12, 3.13)
+# - Tkinter (standard GUI toolkit included with official Python distributions)
+#
+# Platform-specific notes for Tkinter:
+# - macOS: Pre-installed with official python.org installers and Homebrew Python (`brew install python-tk`).
+# - Windows: Pre-installed by default when installing Python from python.org.
+# - Linux: Install via your package manager if not present:
+#     Ubuntu/Debian: sudo apt-get install python3-tk
+#     Fedora/RHEL:   sudo dnf install python3-tkinter
+#     Arch Linux:    sudo pacman -S tk
+#
+# No external pip dependencies are needed to run, explore, or test CurioLab.

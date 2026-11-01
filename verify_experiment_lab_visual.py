@@ -11,7 +11,8 @@ import os
 import subprocess
 from main import CurioLabApp
 
-artifact_dir = "/Users/yogyasharma/.gemini/antigravity-ide/brain/65f6e117-4953-431b-ad84-a29d0f4e8df1"
+artifact_dir = os.environ.get("CURIOLAB_ARTIFACT_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "artifacts"))
+os.makedirs(artifact_dir, exist_ok=True)
 
 root = tk.Tk()
 root.title("CurioLab Stage 7 Visual Verification")
