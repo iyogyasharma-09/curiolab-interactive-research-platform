@@ -951,15 +951,28 @@ class DiscoveryJournalView(tk.Frame):
         elif source_type == "galaxy_concept":
             b_title = "🌌 Research Galaxy Concept Staged for Investigation"
             b_desc = "Transferred theoretical concept and connected disciplines. Refine your research questions before committing."
+        elif source_type == "research_detective":
+            b_title = "🔍 Research Detective Investigation Dossier Staged"
+            b_desc = "Transferred empirical investigation findings, anomalies, and conclusions. Review and refine your journal entry."
         else:
             b_title = "Staged Journal Draft"
             b_desc = "Review and edit research notes before saving."
 
         self.form_title_var.set(draft.get("title", ""))
         self.form_domain_var.set(draft.get("domain", "General"))
-        self.form_type_var.set(draft.get("entry_type", "Literature Note" if source_type == "library_citation" else "Hypothesis"))
+        self.form_type_var.set(draft.get("entry_type", "Finding" if source_type == "research_detective" else ("Literature Note" if source_type == "library_citation" else "Hypothesis")))
         self.form_status_var.set(draft.get("status", "Formulated"))
         self.form_tags_var.set(draft.get("tags", "Draft"))
+
+        meth = draft.get("methodology", "")
+        if "dataset_description" in draft and draft["dataset_description"]:
+            if draft["dataset_description"] not in meth:
+                meth = f"Dataset Description:\n{draft['dataset_description']}\n\nMethodology:\n{meth}"
+
+        conc = draft.get("conclusion", "")
+        if "limitations" in draft and draft["limitations"]:
+            if draft["limitations"] not in conc:
+                conc = f"{conc}\n\nLimitations & Confounders:\n{draft['limitations']}"
 
         self._show_editor_mode(
             banner_title=b_title,
@@ -968,9 +981,9 @@ class DiscoveryJournalView(tk.Frame):
                 "research_question": draft.get("research_question", ""),
                 "hypothesis": draft.get("hypothesis", ""),
                 "observations": draft.get("observations") or draft.get("body", ""),
-                "methodology": draft.get("methodology", ""),
+                "methodology": meth,
                 "results": draft.get("results", ""),
-                "conclusion": draft.get("conclusion", "")
+                "conclusion": conc
             }
         )
 

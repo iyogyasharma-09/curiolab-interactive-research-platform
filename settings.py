@@ -519,7 +519,7 @@ class SettingsView(tk.Frame):
         make_reset_row(
             3,
             "Reset Research Detective Progress",
-            "Resets detective score to 0 and clears solved case dossiers.",
+            "Resets the 7 investigation stages and active notes to initial baseline.",
             self._confirm_reset_detective
         )
         make_reset_row(
@@ -567,12 +567,12 @@ class SettingsView(tk.Frame):
     def _confirm_reset_detective(self):
         if messagebox.askyesno(
             "Confirm Reset Detective",
-            "Reset all investigative progress and reset researcher score to 0?",
+            "Reset all 7 investigation stages and clear active investigation notes?",
             parent=self
         ):
             if hasattr(self.app, "state") and self.app.state:
                 self.app.state.reset_detective_progress()
-                messagebox.showinfo("Reset Complete", "Research Detective progress reset to zero.", parent=self)
+                messagebox.showinfo("Reset Complete", "Research Detective investigation stages reset to baseline.", parent=self)
 
     def _confirm_reset_all(self):
         if messagebox.askyesno(

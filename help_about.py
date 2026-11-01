@@ -125,7 +125,7 @@ class HelpAboutView(tk.Frame):
             ("overview", "🌟 Platform Overview", "Introduction & Architecture"),
             ("hub", "🧭 Discovery Hub", "Dashboard & Metrics"),
             ("experiments", "⚗️ Experiment Lab", "Simulations & Protocols"),
-            ("detective", "🔍 Research Detective", "Cases & Forensic Evidence"),
+            ("detective", "🔍 Research Detective", "Scientific Investigation Workspace"),
             ("library", "📚 Knowledge Library", "Monographs & Citations"),
             ("galaxy", "🌌 Research Galaxy", "Constellations & Bridges"),
             ("journal", "📓 Discovery Journal", "Hypotheses & Notes"),
@@ -303,7 +303,7 @@ class HelpAboutView(tk.Frame):
             [
                 ("1. Discovery Hub", "Real-time dashboard overview with dynamic curriculum metrics, recent activity, and entropy generator."),
                 ("2. Experiment Lab", "Interactive laboratory simulations in cryptography, neural computing, and statistical visualization."),
-                ("3. Research Detective", "Investigative evidence analysis and case resolution across 14 forensic science challenges."),
+                ("3. Research Detective", "Interactive scientific investigation environment: dataset exploration, anomaly auditing, statistical trap analysis, and pattern discovery across connected stages."),
                 ("4. Knowledge Library", "Curated multidisciplinary demonstration monographs with live search, filtering, and citation transfer."),
                 ("5. Research Galaxy", "Interactive knowledge constellation mapping concept relationships across 8 scientific domains."),
                 ("6. Discovery Journal", "Digital research notebook with 5-card dashboard, full CRUD lifecycle, and hypothesis tracking."),
@@ -320,7 +320,7 @@ class HelpAboutView(tk.Frame):
             "The Discovery Hub features four dynamically computed metrics derived directly from AppState in real time:",
             [
                 ("Total Experiments Run", "Sum of executions recorded across Caesar Cipher, Single Neuron Playground, and Data Visualizer."),
-                ("Solved Challenges", "Number of cleared Research Detective case dossiers out of the 14 available challenges."),
+                ("Investigation Stages", "Number of completed scientific investigation stages out of the 7 connected stages."),
                 ("Curated Library Monograph Count", "Total active educational demonstration monographs available in Knowledge Library."),
                 ("Verified Journal Hypotheses", "Count of personal research entries transitioned to the 'Verified' hypothesis stage.")
             ]
@@ -357,20 +357,20 @@ class HelpAboutView(tk.Frame):
 
     # 4. Research Detective
     def _render_detective(self):
-        self._add_section_header("Research Detective Guide", "Question the Evidence. Follow the Clues. Discover the Truth.", "🔍")
+        self._add_section_header("Research Detective Guide", "Scientific Investigation Workspace & Empirical Auditing", "🔍")
         self._add_guide_card(
-            "Investigative Challenge Categories",
-            "Four specialized forensic dossiers designed to test scientific deduction and quantitative reasoning:",
+            "Scientific Investigation Workspaces",
+            "Four integrated investigation environments designed for authentic empirical analysis and quantitative deduction:",
             [
-                ("Cipher Analysis", "Decode intercepted military and intelligence shift ciphers through letter frequency matching."),
-                ("Data Anomalies", "Identify multi-sigma sensor baseline spikes in deep-space cryogenic array telemetry."),
-                ("Statistical Inference", "Test null hypothesis significance and calculate p-values across quantum fluctuation trials."),
-                ("Pattern Recognition", "Deduce cellular automaton neighborhood transition rules from dynamic soliton grid states.")
+                ("Detective Map", "Interactive 7-stage connected investigation pipeline: Research Question, Evidence Collection, Dataset Exploration, Analysis, Observations, Hypothesis, and Conclusion."),
+                ("Data Detective", "Import CSV datasets, validate records, compute descriptive statistics, configure IQR outlier and Z-score anomaly bounds, and highlight normal vs flagged points."),
+                ("Statistical Trap", "Audit misleading statistics, the accuracy paradox under class imbalance, confusion matrix metrics (Precision, Recall, F1), mean vs median skew, and correlation vs causation."),
+                ("Pattern Mystery", "Explore bivariate patterns, fit linear regression trendlines (y = mx + b), calculate Pearson's r and R², and uncover unusual high-residual observations.")
             ]
         )
         self._add_guide_card(
-            "Scoring & Investigator Diligence",
-            "Correct answers award +100 points to your investigator profile. Solving a challenge without utilizing hints awards an additional +50 diligence bonus."
+            "Discussion-Based Scientific Workflow & Journal Transfer",
+            "Replace quiz answering with genuine scientific documentation. Formulate testable hypotheses, record observations in response to guided inquiry prompts, and stage completed investigation dossiers directly into the Discovery Journal."
         )
 
     # 5. Knowledge Library

@@ -39,7 +39,60 @@ class AppState:
         # 4. Laboratory Notifications
         self.notifications = copy.deepcopy(DEMO_NOTIFICATIONS)
 
-        # 5. Research Detective Progression
+        # 5. Research Detective Progression & Scientific Investigation Stages
+        self.investigation_stages = {
+            "question": {
+                "title": "1. Research Question",
+                "status": "In Progress",
+                "notes": "Investigate potential sensor drift and anomalous temperature excursions in the cryogenic resonator telemetry array.",
+                "evidence": "Liquid helium baseline expected around 4.2 K."
+            },
+            "evidence": {
+                "title": "2. Evidence Collection",
+                "status": "In Progress",
+                "notes": "Acquired 30 telemetry frames from Cryo Sensor Bank B during the liquid helium circulation test.",
+                "evidence": "Dataset: Cryogenic Resonator Baseline (30 observations, 4 features)."
+            },
+            "exploration": {
+                "title": "3. Dataset Exploration",
+                "status": "Not Started",
+                "notes": "Audit temperature readings using IQR fences and Z-score thresholding to identify corrupt telemetry frames.",
+                "evidence": "Pending Data Detective inspection."
+            },
+            "analysis": {
+                "title": "4. Analysis",
+                "status": "Not Started",
+                "notes": "Evaluate mean vs median skewness and check whether high accuracy masks false negatives.",
+                "evidence": "Pending Statistical Trap investigation."
+            },
+            "observations": {
+                "title": "5. Observations",
+                "status": "Not Started",
+                "notes": "Document any anomalous observations, residuals, and physical constraints.",
+                "evidence": ""
+            },
+            "hypothesis": {
+                "title": "6. Hypothesis",
+                "status": "Not Started",
+                "notes": "Evaluate whether extreme points reflect physical state transitions (e.g. cavity quench) or hardware measurement glitches.",
+                "evidence": ""
+            },
+            "conclusion": {
+                "title": "7. Conclusion",
+                "status": "Not Started",
+                "notes": "Synthesize conclusions regarding sensor array health and report limitations of the sample size.",
+                "evidence": ""
+            }
+        }
+        self.active_investigation = {
+            "title": "Cryogenic Sensor Anomaly Investigation",
+            "domain": "Data Science",
+            "dataset_name": "Cryogenic Resonator Temperature Array",
+            "dataset_description": "30 sequential telemetry frames measuring superconducting cavity temperatures (Kelvin) during liquid helium cooling.",
+            "methodology": "Standardized IQR outlier fencing (k=1.5) and Z-score anomaly thresholding (|Z| >= 2.5).",
+            "limitations": "Small sample size (N=30); single sensor channel; extreme thermal excursions may represent true localized quenching rather than electrical sensor faults.",
+            "tags": "Research Detective, Data Science, Anomaly Audit, Outliers"
+        }
         self.completed_challenges = set()
         self.hints_used = set()
         self.detective_score = 0
@@ -102,22 +155,18 @@ class AppState:
         Never returns hardcoded strings; all numbers derive from application state.
         """
         total_runs = sum(self.experiment_runs.values())
-        solved_count = len(self.completed_challenges)
-        total_challenges = 14  # 3 Cipher + 3 Data + 3 Stat + 5 Pattern
+        completed_stages = sum(1 for s in getattr(self, "investigation_stages", {}).values() if s.get("status") == "Completed")
+        solved_count = completed_stages if hasattr(self, "investigation_stages") else len(self.completed_challenges)
+        total_challenges = 7  # 7 Connected scientific investigation stages on the Investigation Board
         library_count = len(self.library_resources)
         bookmarked_count = sum(1 for r in self.library_resources if r.get("bookmarked"))
         journal_count = len(self.journal_entries)
         verified_hypotheses = sum(1 for e in self.journal_entries if e.get("status") == "Verified")
         unread_notifs = sum(1 for n in self.notifications if not n.get("read"))
 
-        # Calculate diligence (no-hint solves)
-        if solved_count > 0:
-            no_hint_count = sum(1 for cid in self.completed_challenges if cid not in self.hints_used)
-            diligence_pct = (no_hint_count / float(solved_count)) * 100.0
-        else:
-            diligence_pct = 100.0
-
+        diligence_pct = 100.0
         curriculum_pct = (solved_count / float(total_challenges)) * 100.0
+        self.detective_score = solved_count * 100
 
         return {
             "experiments_count": 3,
@@ -617,14 +666,23 @@ class AppState:
         self.notify()
 
     def reset_detective_progress(self):
-        """Resets Research Detective cleared cases and scores."""
+        """Resets Research Detective investigation stages, active metadata, and notes."""
         self.completed_challenges.clear()
         self.hints_used.clear()
         self.detective_score = 0
+        self.investigation_stages = {
+            "question": {"title": "1. Research Question", "status": "Not Started", "notes": "", "evidence": ""},
+            "evidence": {"title": "2. Evidence Collection", "status": "Not Started", "notes": "", "evidence": ""},
+            "exploration": {"title": "3. Dataset Exploration", "status": "Not Started", "notes": "", "evidence": ""},
+            "analysis": {"title": "4. Analysis", "status": "Not Started", "notes": "", "evidence": ""},
+            "observations": {"title": "5. Observations", "status": "Not Started", "notes": "", "evidence": ""},
+            "hypothesis": {"title": "6. Hypothesis", "status": "Not Started", "notes": "", "evidence": ""},
+            "conclusion": {"title": "7. Conclusion", "status": "Not Started", "notes": "", "evidence": ""}
+        }
         self.notifications.insert(0, {
             "id": f"notif_reset_det_{datetime.datetime.now().microsecond}",
             "title": "🔍 Detective Progress Reset",
-            "desc": "Cleared challenge dossiers and detective investigator score reset to zero.",
+            "desc": "Cleared investigation stages and active notes. Reset to initial workspace state.",
             "timestamp": "Just now",
             "accent": "#8B5CF6",
             "read": False,
@@ -756,12 +814,12 @@ class AppState:
                     "target_id": exp_id
                 })
 
-        # 5. Search Research Detective Challenges
+        # 5. Search Research Detective Modules
         cases = [
-            ("cipher_analysis", "Cipher Analysis: Shift Recovery", "Cybersecurity", "Decode intercept Caesar cipher by analyzing natural English letter frequencies.", "Research Detective"),
-            ("data_anomalies", "Telemetry Anomaly: Deep Space Sensor Spikes", "Data Science", "Identify statistical sigma deviations in sensor array temperature baselines.", "Research Detective"),
-            ("statistical_inference", "Statistical Hypothesis: P-Value Testing", "Mathematics", "Evaluate null hypothesis significance on quantum fluctuation trials.", "Research Detective"),
-            ("pattern_recognition", "Pattern Recognition: Soliton Grid Symmetry", "Complexity Science", "Uncover emergent cellular automaton rules in dynamic lattice systems.", "Research Detective")
+            ("detective_map", "Investigation Board: Detective Map", "Data Science", "Connected scientific workflow across research question, evidence, exploration, analysis, and conclusions.", "Research Detective"),
+            ("data_detective", "Data Detective: Anomaly Investigation", "Data Science", "Import CSV datasets, validate records, detect IQR outliers and Z-score anomalies.", "Research Detective"),
+            ("statistical_trap", "Statistical Trap: Deceptive Metrics", "Statistics", "Investigate class imbalance, accuracy paradox, mean vs median skew, and correlation vs causation.", "Research Detective"),
+            ("pattern_mystery", "Pattern Mystery: Trend Discovery", "Data Science", "Scatter plots, regression trends, Pearson correlation, and unusual residual discovery.", "Research Detective")
         ]
         for case_id, case_name, case_dom, case_desc, page in cases:
             if q in f"{case_name} {case_dom} {case_desc}".lower():
